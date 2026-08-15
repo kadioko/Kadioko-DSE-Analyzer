@@ -1,0 +1,118 @@
+@import 'tailwindcss';
+
+/**
+ * Kadioko DSE Analyzer visual identity.
+ *
+ * A professional financial terminal: deep navy ground, restrained green/red/
+ * amber reserved exclusively for market direction and risk, and typography
+ * tuned so dense numeric tables stay readable. Colour is information here, so
+ * it is never spent on decoration.
+ */
+
+@theme {
+  /* Ground: deep navy, progressively lighter for raised surfaces. */
+  --color-navy-950: #060b18;
+  --color-navy-900: #0a1220;
+  --color-navy-850: #0e1729;
+  --color-navy-800: #121d33;
+  --color-navy-700: #1a2942;
+  --color-navy-600: #243452;
+  --color-navy-500: #334765;
+
+  /* Text. */
+  --color-ink-100: #eef2f8;
+  --color-ink-200: #cfd8e6;
+  --color-ink-300: #9aa8bf;
+  --color-ink-400: #6b7c96;
+  --color-ink-500: #4c5b74;
+
+  /* Market direction. Used only for direction and risk, never for chrome. */
+  --color-up-400: #34d99a;
+  --color-up-500: #16b57a;
+  --color-up-600: #0e8f60;
+  --color-down-400: #f2707f;
+  --color-down-500: #e0475f;
+  --color-down-600: #b8324a;
+  --color-warn-400: #f2b544;
+  --color-warn-500: #d99a24;
+
+  /* Accent: a restrained cyan for interactive affordances. */
+  --color-accent-400: #4cc4e0;
+  --color-accent-500: #2ba3c4;
+  --color-accent-600: #1c7f9c;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
+  /* Tabular figures matter more than personality in a price table. */
+  --font-mono:
+    ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', 'Roboto Mono',
+    Menlo, Consolas, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background-color: var(--color-navy-950);
+  color: var(--color-ink-200);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Every figure in the application is tabular so columns align down a table. */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Focus visibility is a requirement, not a preference. */
+:focus-visible {
+  outline: 2px solid var(--color-accent-400);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+::selection {
+  background-color: color-mix(in srgb, var(--color-accent-500) 40%, transparent);
+  color: var(--color-ink-100);
+}
+
+/* Scrollbars tuned to the dark ground rather than left as bright default bars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-navy-600) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--color-navy-600);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-navy-500);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
