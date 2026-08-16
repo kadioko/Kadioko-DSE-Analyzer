@@ -211,17 +211,21 @@ export function Th({
   align = 'left',
   className,
   title,
+  ariaSort,
 }: {
   /** Optional so an actions column can render a blank header cell. */
   children?: ReactNode;
   align?: 'left' | 'right' | 'center';
   className?: string;
   title?: string;
+  /** Sort state for a sortable column. Belongs on the cell, not on a button. */
+  ariaSort?: 'ascending' | 'descending' | 'none';
 }) {
   return (
     <th
       scope="col"
       title={title}
+      aria-sort={ariaSort}
       className={cn(
         'sticky top-0 z-10 whitespace-nowrap border-b border-navy-700 bg-navy-850 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-ink-400',
         align === 'right' && 'text-right',

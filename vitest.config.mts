@@ -14,6 +14,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(root, './src'),
+      // `server-only` throws unless resolved in a React Server Component.
+      // Vitest is neither bundle, so it is stubbed out for tests. The
+      // production guard is unaffected.
+      'server-only': path.resolve(root, './tests/stubs/server-only.ts'),
     },
   },
 });

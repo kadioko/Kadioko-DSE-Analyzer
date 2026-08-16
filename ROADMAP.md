@@ -67,22 +67,29 @@ Repository, Next.js 16 app, Railway PostgreSQL schema, migrations.
   `market_daily_summary`, re-runnable and versioned
 - ✅ Fixture tests (CRDB B/O ≈ 3.14, NMB, market B/O ≈ 0.87)
 - ✅ 109 unit tests covering analytics, parsing and validation
-- 🚧 Database integration tests written but **not yet executed** — they skip
-  without `DATABASE_URL`. Run them against Railway before trusting an import.
+- ✅ Database integration tests executed against PostgreSQL 17: idempotent
+  upsert, exact NUMERIC round-trip, constraint enforcement, pipeline re-runs
 
-## Phase 5 — Dashboard and market table ⬜
+## Phase 5 — Dashboard and market table ✅
 
-- ⬜ Terminal-style dark-navy theme and layout shell
-- ⬜ `/` — market totals, movers, most active, demand/supply extremes, momentum
-  leaders, unusual volume
-- ⬜ `/market` — full table with search, sort, sector filter, pagination, mobile layout
+- ✅ Terminal-style dark-navy theme, layout shell, tabular figures
+- ✅ `/` — market totals, pressure with components, movers, most active,
+  demand/supply extremes, momentum leaders, unusual volume
+- ✅ `/market` — search, sort, sector filter, traded-only, pagination.
+  Unavailable values sort last in both directions rather than ranking as zero.
+- ✅ First-run setup screen when `DATABASE_URL` is absent, instead of an
+  unhandled configuration error
 
-## Phase 6 — Stock detail ⬜
+## Phase 6 — Stock detail ✅
 
-- ⬜ `/stocks/[symbol]` with Overview, Price, Order Book, Momentum, Fundamentals,
-  Valuation, Dividends, Financials, Corporate Actions, Methodology tabs
-- ⬜ Price / volume / turnover / bid-vs-offer / B/O / pressure charts
-- ⬜ 1M · 3M · 6M · 1Y · 3Y · MAX ranges
+- ✅ `/stocks/[symbol]` with Overview, Price, Order Book, Momentum, Fundamentals,
+  Valuation, Dividends, Corporate Actions and Methodology tabs
+- ✅ Price / volume / turnover / bid-vs-offer / B/O ratio / B/O momentum /
+  pressure charts. `connectNulls` is off everywhere, so a gap reads as a gap.
+- ✅ 1M · 3M · 6M · 1Y · 3Y · MAX ranges
+- ✅ Per-security Methodology tab showing that security's actual component
+  contributions and confidence penalties
+- ✅ Tabs without a data source say so and state what it costs the scores
 
 ## Phase 7 — Sentiment and momentum ⬜
 

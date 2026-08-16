@@ -86,7 +86,21 @@ export function adminEmails(): string[] {
 }
 
 export function isProduction(): boolean {
-  return getEnv().NODE_ENV === 'production';
+  return process.env.NODE_ENV === 'production';
+}
+
+/**
+ * Whether a database connection string is present.
+ *
+ * Deliberately does NOT call getEnv(), so it never throws. Pages use it to show
+ * a setup screen on a fresh checkout instead of an unhandled configuration
+ * error, which tells a first-time operator nothing useful.
+ */
+export function isDatabaseConfigured(): boolean {
+  const url = process.env.DATABASE_URL;
+  return Boolean(
+    url && (url.startsWith('postgres://') || url.startsWith('postgresql://')),
+  );
 }
 
 /**

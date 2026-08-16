@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getAdminSession } from '@/lib/auth';
-import { getEnv } from '@/lib/env';
+import { getEnv, isDatabaseConfigured } from '@/lib/env';
+import { SetupRequired } from '@/components/setup-required';
 import { pingDatabase } from '@/lib/db/client';
 import { listRuns, listSources } from '@/lib/db/repositories/ingestion';
 import { latestTradingDate } from '@/lib/db/repositories/market';
@@ -33,6 +34,8 @@ export const dynamic = 'force-dynamic';
  * counts, no run history, no instrument list.
  */
 export default async function AdminDataPage() {
+  if (!isDatabaseConfigured()) return <SetupRequired />;
+
   const session = await getAdminSession();
 
   if (!session) {
