@@ -243,15 +243,19 @@ export function Td({
   align = 'left',
   className,
   title,
+  colSpan,
 }: {
-  children: ReactNode;
+  /** Optional so a spacer or actions cell can render empty. */
+  children?: ReactNode;
   align?: 'left' | 'right' | 'center';
   className?: string;
   title?: string;
+  colSpan?: number;
 }) {
   return (
     <td
       title={title}
+      colSpan={colSpan}
       className={cn(
         'whitespace-nowrap border-b border-navy-800 px-3 py-2 text-[13px] text-ink-200',
         align === 'right' && 'num text-right',

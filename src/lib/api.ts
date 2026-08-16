@@ -40,8 +40,8 @@ export function fail(
  * server-side.
  */
 export async function handle(
-  fn: () => Promise<NextResponse>,
-): Promise<NextResponse> {
+  fn: () => Promise<Response>,
+): Promise<Response> {
   try {
     return await fn();
   } catch (error) {
