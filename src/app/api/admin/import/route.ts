@@ -1,6 +1,9 @@
 import { clientKey, fail, handle, ok, rateLimit } from '@/lib/api';
 import { requireAdmin } from '@/lib/auth';
 import { commitImport, previewImport } from '@/lib/ingestion/importer';
+import { importFundamentalsCsv } from '@/lib/ingestion/fundamentals-import';
+import { generateRankingSnapshot, latestRankingDate } from '@/lib/services/ranking-service';
+import { latestTradingDate } from '@/lib/db/repositories/market';
 import { PARSE_LIMITS } from '@/lib/ingestion/parse';
 import { findRunByChecksum, getSourceByName } from '@/lib/db/repositories/ingestion';
 
@@ -47,9 +50,30 @@ export async function POST(request: Request) {
       );
     }
 
+    const kind = String(form.get('kind') ?? 'market');
     const mode = String(form.get('mode') ?? 'preview');
     const defaultTradingDate = form.get('tradingDate');
     const content = await file.text();
+
+    // Financial results follow a separate pipeline: they are a small set of
+    // carefully checked rows, not a daily observation stream, and the market
+    // data-quality rules do not apply to them.
+    if (kind === 'fundamentals') {
+      const result = await importFundamentalsCsv(content);
+
+      // A new financial period changes the fundamental score, which changes
+      // the ranking. Regenerate the latest snapshot so the two stay in step.
+      let rankingRegenerated: string | null = null;
+      if (result.scoresWritten > 0) {
+        const date = (await latestRankingDate()) ?? (await latestTradingDate());
+        if (date) {
+          await generateRankingSnapshot(date);
+          rankingRegenerated = date;
+        }
+      }
+
+      return ok({ ...result, kind: 'fundamentals', rankingRegenerated });
+    }
 
     if (mode === 'preview') {
       const preview = await previewImport(content, {

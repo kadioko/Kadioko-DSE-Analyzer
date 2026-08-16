@@ -22,6 +22,7 @@ export const viewport: Viewport = {
 const NAV = [
   { href: '/', label: 'Dashboard' },
   { href: '/market', label: 'Market' },
+  { href: '/rankings', label: 'Rankings' },
   { href: '/sentiment', label: 'Sentiment' },
   { href: '/momentum', label: 'Momentum' },
   { href: '/compare', label: 'Compare' },

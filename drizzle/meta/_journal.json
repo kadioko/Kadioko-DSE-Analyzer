@@ -8,6 +8,13 @@
       "when": 1786528592239,
       "tag": "0000_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786883623871,
+      "tag": "0001_ranking_engine",
+      "breakpoints": true
     }
   ]
 }

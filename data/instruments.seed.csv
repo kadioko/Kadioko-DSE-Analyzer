@@ -1,49 +1,43 @@
-symbol,name,security_type,sector,is_cross_listed,country_of_incorporation,currency,notes
+symbol,name,security_type,sector,is_cross_listed,country_of_incorporation,currency,shares_outstanding,notes
 # ---------------------------------------------------------------------------
-# DSE instrument master - REFERENCE STARTING SET.
+# DSE instrument master.
 #
-# This file is reference data (which securities exist), NOT market data. No
-# prices, volumes or order-book figures appear here or anywhere in the seed.
+# Generated from the Symbols sheet of the Kadioko DSE Sheet by
+# scripts/extract-from-sheet.py. This is reference data (which securities
+# exist and how many shares are in issue), NOT market data. No prices,
+# volumes or order-book figures appear here.
 #
-# VERIFY THIS LIST against the official DSE listed-securities register before
-# production use. Listings change: companies delist, new counters list, and
-# names change after restructuring. Rows here that are wrong for your data
-# will surface as UNKNOWN_SYMBOL rejections at import, which is the intended
-# failure mode - a wrong instrument master blocks ingestion rather than
-# silently corrupting it.
-#
-# shares_outstanding is deliberately absent. It is left NULL until an
-# operator enters a verified figure, because it drives the MARKET_CAP_ANOMALY
-# data-quality check and a guessed value would produce false warnings.
-# Set it in the admin instrument editor or with a follow-up UPDATE.
-#
-# listed_date is likewise omitted rather than estimated.
+# shares_outstanding drives the MARKET_CAP_ANOMALY data-quality check, so a
+# wrong figure produces false warnings at import. Re-run the extractor after
+# any corporate action that changes the share count.
 # ---------------------------------------------------------------------------
-CRDB,CRDB Bank Plc,EQUITY,Banking,false,TZ,TZS,
-NMB,NMB Bank Plc,EQUITY,Banking,false,TZ,TZS,
-DCB,DCB Commercial Bank Plc,EQUITY,Banking,false,TZ,TZS,
-MKCB,Mkombozi Commercial Bank Plc,EQUITY,Banking,false,TZ,TZS,
-MBP,Maendeleo Bank Plc,EQUITY,Banking,false,TZ,TZS,
-MUCOBA,Mufindi Community Bank Plc,EQUITY,Banking,false,TZ,TZS,
-MCB,Mwalimu Commercial Bank Plc,EQUITY,Banking,false,TZ,TZS,
-YETU,Yetu Microfinance Bank Plc,EQUITY,Banking,false,TZ,TZS,
-TBL,Tanzania Breweries Limited,EQUITY,Beverages,false,TZ,TZS,
-TCC,Tanzania Cigarette Company Limited,EQUITY,Tobacco,false,TZ,TZS,
-TPCC,Tanzania Portland Cement Company Limited,EQUITY,Construction & Materials,false,TZ,TZS,Twiga Cement
-TCCL,Tanga Cement Company Limited,EQUITY,Construction & Materials,false,TZ,TZS,Simba Cement
-TOL,TOL Gases Limited,EQUITY,Industrial,false,TZ,TZS,
-SWIS,Swissport Tanzania Plc,EQUITY,Transport & Logistics,false,TZ,TZS,
-PAL,Precision Air Services Plc,EQUITY,Transport & Logistics,false,TZ,TZS,
-DSE,Dar es Salaam Stock Exchange Plc,EQUITY,Financial Services,false,TZ,TZS,
-NICO,National Investments Company Limited,EQUITY,Financial Services,false,TZ,TZS,NICOL
-TTP,Tanzania Tea Packers Limited,EQUITY,Agriculture,false,TZ,TZS,Tatepa
-SWALA,Swala Oil and Gas (Tanzania) Plc,EQUITY,Energy,false,TZ,TZS,
-VODA,Vodacom Tanzania Plc,EQUITY,Telecommunications,false,TZ,TZS,
-JATU,JATU Plc,EQUITY,Agriculture,false,TZ,TZS,
-AFRIPRISE,Afriprise Investment Plc,EQUITY,Financial Services,false,TZ,TZS,
-EABL,East African Breweries Limited,EQUITY,Beverages,true,KE,TZS,Cross-listed from the Nairobi Securities Exchange
-KCB,KCB Group Plc,EQUITY,Banking,true,KE,TZS,Cross-listed from the Nairobi Securities Exchange
-KA,Kenya Airways Plc,EQUITY,Transport & Logistics,true,KE,TZS,Cross-listed from the Nairobi Securities Exchange
-NMG,Nation Media Group Plc,EQUITY,Media,true,KE,TZS,Cross-listed from the Nairobi Securities Exchange
-JHL,Jubilee Holdings Limited,EQUITY,Insurance,true,KE,TZS,Cross-listed from the Nairobi Securities Exchange
-USL,Uchumi Supermarket Plc,EQUITY,Retail,true,KE,TZS,Cross-listed from the Nairobi Securities Exchange
+AFRIPRISE,Afriprise Investment PLC,EQUITY,Investment,false,TZ,TZS,146032000,
+CRDB,CRDB Bank PLC,EQUITY,Banking,false,TZ,TZS,2611837037,
+DCB,DCB Commercial Bank PLC,EQUITY,Banking,false,TZ,TZS,191591398,
+DSE,Dar es Salaam Stock Exchange PLC,EQUITY,Financial Services,false,TZ,TZS,23823440,
+EABL,East African Breweries PLC,EQUITY,Consumer Goods,true,KE,TZS,790774597,
+JATU,JATU PLC,EQUITY,Agriculture,false,TZ,TZS,19924528,
+JHL,Jubilee Holdings Ltd,EQUITY,Insurance,true,KE,TZS,72472832,
+KA,Kenya Airways PLC,EQUITY,Transport,true,KE,TZS,5681454545,
+KCB,KCB Group PLC,EQUITY,Banking,true,KE,TZS,2970338462,
+MBP,Maendeleo Bank PLC,EQUITY,Banking,false,TZ,TZS,29988095,
+MCB,MCB — name to confirm with DSE,EQUITY,Banking,false,TZ,TZS,247308642,
+MKCB,Mkombozi Commercial Bank PLC,EQUITY,Banking,false,TZ,TZS,23555851,
+MUCOBA,MUCOBA Bank PLC,EQUITY,Banking,false,TZ,TZS,32659341,
+NICO,National Investments Company Ltd (NICOL),EQUITY,Investment,false,TZ,TZS,61643979,
+NMB,NMB Bank PLC,EQUITY,Banking,false,TZ,TZS,500000000,
+NMG,Nation Media Group PLC,EQUITY,Media,true,KE,TZS,188545455,
+PAL,Precision Air Services PLC,EQUITY,Transport,false,TZ,TZS,160463768,
+SWALA,Swala Oil and Gas (Tanzania) PLC,EQUITY,Oil & Gas,false,TZ,TZS,106200000,
+SWIS,Swissport Tanzania PLC,EQUITY,Industrials,false,TZ,TZS,36000000,
+TBL,Tanzania Breweries Ltd,EQUITY,Consumer Goods,false,TZ,TZS,295056395,
+TCC,Tanzania Cigarette Company Ltd,EQUITY,Consumer Goods,false,TZ,TZS,100000000,
+TCCL,Tanga Cement PLC,EQUITY,Industrials,false,TZ,TZS,191012658,
+TOL,TOL Gases Ltd,EQUITY,Basic Materials,false,TZ,TZS,57503356,
+TPCC,Tanzania Portland Cement PLC (Twiga),EQUITY,Industrials,false,TZ,TZS,179922314,
+TTP,Tanzania Tea Packers Ltd (TATEPA),EQUITY,Consumer Goods,false,TZ,TZS,95066667,
+USL,Uchumi Supermarkets PLC,EQUITY,Retail,true,KE,TZS,365000000,
+VODA,Vodacom Tanzania PLC,EQUITY,Telecommunications,false,TZ,TZS,2240000000,
+YETU,Yetu Microfinance Bank PLC,EQUITY,Banking,false,TZ,TZS,12117647,
+IEACLC-ETF,IEACLC ETF,EQUITY,Exchange Traded Fund,false,TZ,TZS,141111940,
+VERTEX-ETF,VERTEX ETF,EQUITY,Exchange Traded Fund,false,TZ,TZS,54000000,

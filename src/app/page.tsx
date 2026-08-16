@@ -14,6 +14,7 @@ import {
   Stat,
 } from '@/components/ui/primitives';
 import { SetupRequired } from '@/components/setup-required';
+import { TopRanked } from '@/components/market/top-ranked';
 import { isDatabaseConfigured } from '@/lib/env';
 import {
   ChangeCell,
@@ -262,6 +263,8 @@ export default async function DashboardPage() {
             emptyMessage="No counter traded unusual volume this session."
           />
         </Card>
+
+        <TopRanked limit={5} />
 
         <Card>
           <CardHeader title="Reports" />

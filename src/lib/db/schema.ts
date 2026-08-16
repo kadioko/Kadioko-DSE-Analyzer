@@ -956,3 +956,279 @@ export type Alert = typeof alerts.$inferSelect;
 export type BoState = (typeof boStateEnum.enumValues)[number];
 export type PressureSignal = (typeof pressureSignalEnum.enumValues)[number];
 export type ValidationStatus = (typeof validationStatusEnum.enumValues)[number];
+
+/* ========================================================================== */
+/* Ranking engine                                                             */
+/*                                                                            */
+/* Rankings combine a long-term fundamental score with the current sentiment  */
+/* (market pressure) score the analytics engine already produces. The two are */
+/* never conflated: a security can have weak fundamentals and excellent       */
+/* sentiment and still rank poorly. That is the intended behaviour.           */
+/* ========================================================================== */
+
+export const rankingStatusEnum = pgEnum('ranking_status', [
+  'GENERATING',
+  'COMPLETE',
+  'PARTIAL',
+  'FAILED',
+]);
+
+export const rankingGradeEnum = pgEnum('ranking_grade', [
+  'BORA_SANA',
+  'NZURI_SANA',
+  'NZURI',
+  'WASTANI',
+  'DHAIFU',
+  'DHAIFU_SANA',
+]);
+
+export const marketDemandEnum = pgEnum('market_demand', [
+  'DEMAND_KUBWA_SANA',
+  'DEMAND_KUBWA',
+  'DEMAND_WASTANI',
+  'DEMAND_NDOGO_SANA',
+]);
+
+export const interpretationCodeEnum = pgEnum('interpretation_code', [
+  'QUALITY_AND_TREND_ALIGNED',
+  'QUALITY_AWAITING_TREND',
+  'AVERAGE_QUALITY',
+  'AVERAGE_QUALITY_WEAK_TREND',
+  'WEAK_QUALITY',
+]);
+
+export const exclusionReasonEnum = pgEnum('exclusion_reason', [
+  'MISSING_FUNDAMENTALS',
+  'MISSING_SENTIMENT',
+  'STALE_FUNDAMENTALS',
+  'BELOW_MINIMUM_CONFIDENCE',
+  'BELOW_MINIMUM_LIQUIDITY',
+  'INSTRUMENT_INACTIVE',
+]);
+
+export const fundamentalSourceStatusEnum = pgEnum('fundamental_source_status', [
+  'VERIFIED',
+  'UNVERIFIED',
+  'PARTIAL',
+]);
+
+/**
+ * Versioned ranking configuration.
+ *
+ * Weights live in the database rather than in application code so that a
+ * published ranking can be reproduced exactly, and so future models
+ * (Long-Term, Balanced, Momentum) can be added without touching the engine.
+ */
+export const rankingModels = pgTable(
+  'ranking_models',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    code: varchar('code', { length: 40 }).notNull(),
+    name: varchar('name', { length: 120 }).notNull(),
+    description: text('description'),
+    /** Must sum to exactly 1.0000 with sentimentWeight. Validated in code. */
+    fundamentalWeight: numeric('fundamental_weight', { precision: 5, scale: 4 }).notNull(),
+    sentimentWeight: numeric('sentiment_weight', { precision: 5, scale: 4 }).notNull(),
+    /** Entries below these are marked ineligible, with a reason, not dropped. */
+    minimumConfidence: numeric('minimum_confidence', { precision: 6, scale: 2 }),
+    minimumLiquidity: numeric('minimum_liquidity', { precision: 6, scale: 2 }),
+    /** Grade band edges, published verbatim on /methodology. */
+    gradeBands: jsonb('grade_bands')
+      .$type<Record<string, number>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    active: boolean('active').notNull().default(true),
+    version: varchar('version', { length: 20 }).notNull().default('1.0'),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [uniqueIndex('ranking_models_code_version_key').on(t.code, t.version)],
+);
+
+/**
+ * Fundamental scores derived from the `fundamentals` table.
+ *
+ * Kept separate from `fundamentals` because that table holds reported figures
+ * and this one holds a derived, versioned score. A row exists only where there
+ * was financial data to score. A missing score is never written as zero.
+ */
+export const fundamentalScores = pgTable(
+  'fundamental_scores',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    instrumentId: uuid('instrument_id')
+      .notNull()
+      .references(() => instruments.id, { onDelete: 'cascade' }),
+    financialPeriod: date('financial_period').notNull(),
+    periodType: periodTypeEnum('period_type').notNull(),
+    fundamentalsId: uuid('fundamentals_id').references(() => fundamentals.id, {
+      onDelete: 'cascade',
+    }),
+    score: numeric('score', { precision: 8, scale: 4 }).notNull(),
+    /** Percentage of the model weight that actually had data behind it. */
+    dataCompleteness: numeric('data_completeness', { precision: 6, scale: 2 }).notNull(),
+    components: jsonb('components')
+      .$type<Record<string, number | null>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    methodologyVersion: varchar('methodology_version', { length: 40 })
+      .notNull()
+      .default('fundamental-v1'),
+    sourceStatus: fundamentalSourceStatusEnum('source_status')
+      .notNull()
+      .default('UNVERIFIED'),
+    /**
+     * When the underlying results were published. The ranking generator uses
+     * this to exclude reports published AFTER the ranking date, which is what
+     * prevents look-ahead bias.
+     */
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+    calculatedAt: timestamp('calculated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('fundamental_scores_instrument_period_model_key').on(
+      t.instrumentId,
+      t.financialPeriod,
+      t.periodType,
+      t.methodologyVersion,
+    ),
+    index('fundamental_scores_instrument_idx').on(t.instrumentId),
+    index('fundamental_scores_published_idx').on(t.publishedAt),
+  ],
+);
+
+export const rankingSnapshots = pgTable(
+  'ranking_snapshots',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    rankingModelId: uuid('ranking_model_id')
+      .notNull()
+      .references(() => rankingModels.id, { onDelete: 'restrict' }),
+    tradingDate: date('trading_date').notNull(),
+    /** Latest financial period any constituent used, shown in the page header. */
+    fundamentalPeriod: date('fundamental_period'),
+    generatedAt: timestamp('generated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    modelVersion: varchar('model_version', { length: 20 }).notNull().default('1.0'),
+    status: rankingStatusEnum('status').notNull().default('GENERATING'),
+    instrumentsConsidered: integer('instruments_considered').notNull().default(0),
+    instrumentsRanked: integer('instruments_ranked').notNull().default(0),
+    instrumentsExcluded: integer('instruments_excluded').notNull().default(0),
+    notes: text('notes'),
+  },
+  (t) => [
+    // One snapshot per model version per date; re-running updates it in place
+    // rather than accumulating duplicates.
+    uniqueIndex('ranking_snapshots_model_date_key').on(
+      t.rankingModelId,
+      t.tradingDate,
+      t.modelVersion,
+    ),
+    index('ranking_snapshots_date_idx').on(t.tradingDate.desc()),
+  ],
+);
+
+export const rankingEntries = pgTable(
+  'ranking_entries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    rankingSnapshotId: uuid('ranking_snapshot_id')
+      .notNull()
+      .references(() => rankingSnapshots.id, { onDelete: 'cascade' }),
+    instrumentId: uuid('instrument_id')
+      .notNull()
+      .references(() => instruments.id, { onDelete: 'cascade' }),
+    /** Null for ineligible entries: they are recorded, with a reason, unranked. */
+    rank: integer('rank'),
+    previousRank: integer('previous_rank'),
+    /** Positive means improvement, i.e. moved toward rank 1. Null for new entrants. */
+    rankChange: integer('rank_change'),
+    isNewEntrant: boolean('is_new_entrant').notNull().default(false),
+
+    /** Stored at higher precision than displayed; the UI rounds to 1 dp. */
+    fundamentalScore: numeric('fundamental_score', { precision: 8, scale: 4 }),
+    sentimentScore: numeric('sentiment_score', { precision: 8, scale: 4 }),
+    overallScore: numeric('overall_score', { precision: 8, scale: 4 }),
+
+    grade: rankingGradeEnum('grade'),
+    marketDemand: marketDemandEnum('market_demand'),
+    interpretationCode: interpretationCodeEnum('interpretation_code'),
+    interpretationEn: text('interpretation_en'),
+    interpretationSw: text('interpretation_sw'),
+
+    liquidityScore: numeric('liquidity_score', { precision: 6, scale: 2 }),
+    dataConfidence: numeric('data_confidence', { precision: 6, scale: 2 }),
+    /** Which financial period backed this entry's fundamental score. */
+    fundamentalPeriod: date('fundamental_period'),
+
+    eligible: boolean('eligible').notNull().default(false),
+    exclusionReason: exclusionReasonEnum('exclusion_reason'),
+    createdAt,
+  },
+  (t) => [
+    uniqueIndex('ranking_entries_snapshot_instrument_key').on(
+      t.rankingSnapshotId,
+      t.instrumentId,
+    ),
+    index('ranking_entries_snapshot_rank_idx').on(t.rankingSnapshotId, t.rank),
+    index('ranking_entries_instrument_idx').on(t.instrumentId),
+    index('ranking_entries_overall_score_idx').on(t.overallScore),
+    index('ranking_entries_grade_idx').on(t.grade),
+  ],
+);
+
+export const rankingModelsRelations = relations(rankingModels, ({ many }) => ({
+  snapshots: many(rankingSnapshots),
+}));
+
+export const rankingSnapshotsRelations = relations(
+  rankingSnapshots,
+  ({ one, many }) => ({
+    model: one(rankingModels, {
+      fields: [rankingSnapshots.rankingModelId],
+      references: [rankingModels.id],
+    }),
+    entries: many(rankingEntries),
+  }),
+);
+
+export const rankingEntriesRelations = relations(rankingEntries, ({ one }) => ({
+  snapshot: one(rankingSnapshots, {
+    fields: [rankingEntries.rankingSnapshotId],
+    references: [rankingSnapshots.id],
+  }),
+  instrument: one(instruments, {
+    fields: [rankingEntries.instrumentId],
+    references: [instruments.id],
+  }),
+}));
+
+export const fundamentalScoresRelations = relations(
+  fundamentalScores,
+  ({ one }) => ({
+    instrument: one(instruments, {
+      fields: [fundamentalScores.instrumentId],
+      references: [instruments.id],
+    }),
+    fundamentals: one(fundamentals, {
+      fields: [fundamentalScores.fundamentalsId],
+      references: [fundamentals.id],
+    }),
+  }),
+);
+
+export type RankingModel = typeof rankingModels.$inferSelect;
+export type FundamentalScoreRow = typeof fundamentalScores.$inferSelect;
+export type NewFundamentalScoreRow = typeof fundamentalScores.$inferInsert;
+export type RankingSnapshot = typeof rankingSnapshots.$inferSelect;
+export type NewRankingSnapshot = typeof rankingSnapshots.$inferInsert;
+export type RankingEntryRow = typeof rankingEntries.$inferSelect;
+export type NewRankingEntryRow = typeof rankingEntries.$inferInsert;
+export type RankingGrade = (typeof rankingGradeEnum.enumValues)[number];
+export type MarketDemand = (typeof marketDemandEnum.enumValues)[number];
+export type InterpretationCode = (typeof interpretationCodeEnum.enumValues)[number];
+export type ExclusionReason = (typeof exclusionReasonEnum.enumValues)[number];
+export type RankingStatus = (typeof rankingStatusEnum.enumValues)[number];

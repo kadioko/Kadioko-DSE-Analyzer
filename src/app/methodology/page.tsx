@@ -1,6 +1,18 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
+  DEFAULT_RANKING_CONFIG,
+  DEMAND_BANDS,
+  DEMAND_LABELS,
+  GRADE_BANDS,
+  GRADE_LABELS,
+} from '@/lib/analytics/ranking';
+import {
+  BANKING_WEIGHTS,
+  FUNDAMENTAL_THRESHOLDS,
+  FUNDAMENTAL_WEIGHTS,
+} from '@/lib/analytics/fundamental';
+import {
   CONFIDENCE_PENALTIES,
   CONFIDENCE_THRESHOLDS,
   LIQUIDITY_WEIGHTS,
@@ -493,6 +505,152 @@ export default function MethodologyPage() {
         </CardBody>
       </Card>
 
+      {/* -- Overall ranking ------------------------------------------------ */}
+      <Card>
+        <CardHeader title="9 · Overall Ranking" />
+        <CardBody className="space-y-4 text-[13px] leading-relaxed text-ink-300">
+          <Formula>
+            Overall Score = Fundamental × {DEFAULT_RANKING_CONFIG.fundamentalWeight}
+            {'  +  '}Sentiment × {DEFAULT_RANKING_CONFIG.sentimentWeight}
+          </Formula>
+
+          <Notice tone="warn" title="Three separate ideas, never interchangeable">
+            <b>Fundamental Score</b> says how strong the underlying business is.{' '}
+            <b>Sentiment Score</b> says what the current order book looks like.{' '}
+            <b>Overall Score</b> combines them. A security can have poor
+            fundamentals and excellent sentiment and still rank poorly. That is
+            intended, because{' '}
+            {Math.round(DEFAULT_RANKING_CONFIG.fundamentalWeight * 100)}% of the
+            weight is business quality.
+          </Notice>
+
+          <p>
+            Scores are stored at full precision and displayed to one decimal
+            place. Weights live in the <code>ranking_models</code> table and must
+            sum to exactly 1.00, so any published ranking can be reproduced.
+          </p>
+
+          <WeightTable
+            title="Fundamental Score — general model"
+            weights={FUNDAMENTAL_WEIGHTS}
+            notes={{
+              profitability: `Return on equity; ${FUNDAMENTAL_THRESHOLDS.roeMaxPct}% saturates`,
+              margins: 'Net and gross margin',
+              growth: 'Revenue and earnings-per-share growth versus the prior comparable period',
+              balanceSheet: `Debt-to-equity; ${FUNDAMENTAL_THRESHOLDS.debtToEquityMax} scores 0`,
+              cashFlow: 'Operating cash flow ÷ net income. Not scored against negative earnings',
+              shareholderReturn: 'Dividend payout record',
+            }}
+          />
+
+          <WeightTable
+            title="Fundamental Score — banking model"
+            weights={BANKING_WEIGHTS}
+            notes={{
+              profitability: 'Return on equity',
+              assetQuality: `Non-performing loan ratio; ${FUNDAMENTAL_THRESHOLDS.nplBestPct}% scores 100`,
+              capitalStrength: `Capital adequacy; the ${FUNDAMENTAL_THRESHOLDS.carMinPct}% regulatory minimum scores 0`,
+              efficiency: 'Cost-to-income ratio',
+              growth: 'Revenue and earnings growth',
+              shareholderReturn: 'Dividend payout record',
+            }}
+          />
+
+          <p>
+            The banking model is selected by the <b>data</b> — the presence of
+            NPL, capital-adequacy or cost-to-income figures — not by a sector
+            label and never by a ticker symbol. Net margin on a bank is not
+            comparable with net margin on a brewer, which is why the two models
+            differ. Below {FUNDAMENTAL_THRESHOLDS.minCompleteness}% data
+            completeness, no fundamental score is produced at all.
+          </p>
+
+          <BandTable
+            title="Grades"
+            bands={GRADE_BANDS}
+            labels={GRADE_LABELS}
+            firstColumn="Overall score"
+          />
+
+          <BandTable
+            title="Market demand — from the SENTIMENT score, not the overall score"
+            bands={DEMAND_BANDS}
+            labels={DEMAND_LABELS}
+            firstColumn="Sentiment score"
+          />
+
+          <div>
+            <p className="mb-2 text-[13px] font-medium text-ink-100">
+              Decision logic (Uamuzi)
+            </p>
+            <TableScroll>
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr>
+                    <Th>Condition</Th>
+                    <Th>Kiswahili</Th>
+                    <Th>English</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ['Fundamental ≥ 70 and Sentiment ≥ 70', 'Nunua: ubora na mwelekeo vinaungana', 'Accumulate: quality and market direction are aligned'],
+                    ['Fundamental ≥ 70 and Sentiment < 70', 'Fuatilia: ubora mzuri, mwelekeo bado haujathibitisha', 'Watch: strong quality, market direction not yet confirmed'],
+                    ['50 ≤ Fundamental < 70, Sentiment ≥ 30', 'Fuatilia: ubora wa wastani', 'Watch: average fundamental quality'],
+                    ['50 ≤ Fundamental < 70, Sentiment < 30', 'Fuatilia: ubora wa wastani, mwelekeo bado dhaifu', 'Watch: average quality and weak market direction'],
+                    ['Fundamental < 50', 'Epuka: ubora dhaifu', 'Avoid or watch cautiously: weak fundamental quality'],
+                  ].map(([condition, sw, en]) => (
+                    <tr key={condition}>
+                      <Td className="whitespace-normal">{condition}</Td>
+                      <Td className="whitespace-normal text-ink-100">{sw}</Td>
+                      <Td className="whitespace-normal text-ink-400">{en}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableScroll>
+          </div>
+
+          <p>
+            The decision is <b className="text-ink-100">not</b> a function of the
+            overall score. High sentiment never produces accumulate-style
+            language on a weak business: the first rule evaluated is
+            &ldquo;fundamental below 50&rdquo;, and it overrides whatever the
+            market is doing.
+          </p>
+
+          <p className="text-ink-100">Eligibility</p>
+          <ul className="list-inside list-disc space-y-1">
+            <li>No fundamental score → excluded, <code>MISSING_FUNDAMENTALS</code></li>
+            <li>No sentiment score → excluded, <code>MISSING_SENTIMENT</code></li>
+            <li>Inactive instrument → excluded, <code>INSTRUMENT_INACTIVE</code></li>
+          </ul>
+          <p>
+            Excluded securities are still listed with their reason and given a
+            blank rank, rather than dropped or scored as zero. They do not occupy
+            a rank position, so the ranked list is never padded.
+          </p>
+
+          <p className="text-ink-100">No look-ahead bias</p>
+          <p>
+            A ranking dated a given day may only use financial results whose
+            period ended on or before that date <b>and</b> which were published
+            on or before it. A December year-end released in March is not
+            available to a January ranking. Historical rankings are served from
+            stored snapshots and never recomputed, so a past ranking is exactly
+            what was published then.
+          </p>
+
+          <Notice tone="warn" title="Not backtested">
+            This ranking model has not been backtested. Snapshots are stored so
+            that score-versus-future-return, rank stability and top-decile
+            performance can be evaluated later. Until that work is done, no claim
+            is made that the ranking predicts anything. It is a transparent
+            ordering under a stated model, and it is not investment advice.
+          </Notice>
+        </CardBody>
+      </Card>
+
       {/* -- Model registry ------------------------------------------------- */}
       <Card>
         <CardHeader
@@ -542,6 +700,59 @@ function Formula({ children }: { children: React.ReactNode }) {
     <pre className="num overflow-x-auto rounded border border-navy-700 bg-navy-950 px-4 py-3 text-[13px] leading-relaxed text-ink-200">
       {children}
     </pre>
+  );
+}
+
+/**
+ * Renders a band table from its lower edges.
+ *
+ * The upper edge of each band is derived from the next band up, so the table
+ * cannot drift out of step with the code that does the banding.
+ */
+function BandTable<T extends string>({
+  title,
+  bands,
+  labels,
+  firstColumn,
+}: {
+  title: string;
+  bands: Record<T, number>;
+  labels: Record<T, { sw: string; en: string }>;
+  firstColumn: string;
+}) {
+  const codes = (Object.keys(bands) as T[]).sort((a, b) => bands[b] - bands[a]);
+
+  return (
+    <div>
+      <p className="mb-2 text-[13px] font-medium text-ink-100">{title}</p>
+      <TableScroll>
+        <table className="w-full border-collapse">
+          <thead>
+            <tr>
+              <Th>{firstColumn}</Th>
+              <Th>Kiswahili</Th>
+              <Th>English</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {codes.map((code, i) => {
+              const lower = bands[code];
+              const upper =
+                i === 0 ? 100 : bands[codes[i - 1] as T] - 0.01;
+              return (
+                <tr key={code}>
+                  <Td>
+                    {lower} – {upper.toFixed(2)}
+                  </Td>
+                  <Td className="text-ink-100">{labels[code].sw}</Td>
+                  <Td className="text-ink-400">{labels[code].en}</Td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </TableScroll>
+    </div>
   );
 }
 

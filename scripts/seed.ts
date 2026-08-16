@@ -31,6 +31,7 @@ interface SeedInstrument {
   isCrossListed: boolean;
   countryOfIncorporation: string;
   currency: string;
+  sharesOutstanding: number | null;
   notes: string | null;
 }
 
@@ -64,6 +65,7 @@ function readInstrumentSeed(): SeedInstrument[] {
   const iCross = indexOf('is_cross_listed');
   const iCountry = indexOf('country_of_incorporation');
   const iCurrency = indexOf('currency');
+  const iShares = indexOf('shares_outstanding');
   const iNotes = indexOf('notes');
 
   if (iSymbol === -1 || iName === -1) {
@@ -104,6 +106,15 @@ function readInstrumentSeed(): SeedInstrument[] {
       isCrossListed: (cells[iCross] ?? '').toLowerCase() === 'true',
       countryOfIncorporation: (cells[iCountry] || 'TZ').toUpperCase(),
       currency: (cells[iCurrency] || 'TZS').toUpperCase(),
+      // Absent or unparseable stays NULL. A guessed share count would produce
+      // false MARKET_CAP_ANOMALY warnings on every import.
+      sharesOutstanding: (() => {
+        if (iShares === -1) return null;
+        const raw = (cells[iShares] ?? '').replace(/[,\s]/g, '');
+        if (raw === '') return null;
+        const n = Number(raw);
+        return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+      })(),
       notes: iNotes === -1 ? null : cells[iNotes] || null,
     });
   }
@@ -151,6 +162,9 @@ async function main() {
           countryOfIncorporation: raw`excluded.country_of_incorporation`,
           currency: raw`excluded.currency`,
           notes: raw`excluded.notes`,
+          // Only overwrite when the seed actually carries a figure, so a value
+          // an operator entered by hand is never wiped by a re-seed.
+          sharesOutstanding: raw`coalesce(excluded.shares_outstanding, ${schema.instruments.sharesOutstanding})`,
           updatedAt: new Date(),
         },
       });
@@ -158,8 +172,11 @@ async function main() {
     console.log(
       `  ${newCount} new, ${seedInstruments.length - newCount} updated.`,
     );
+    const withShares = seedInstruments.filter(
+      (i) => i.sharesOutstanding !== null,
+    ).length;
     console.log(
-      '  shares_outstanding left untouched - enter verified figures before relying on market-cap checks.',
+      `  ${withShares} of ${seedInstruments.length} carry a shares-outstanding figure.`,
     );
 
     /* -- Ingestion sources ------------------------------------------------ */

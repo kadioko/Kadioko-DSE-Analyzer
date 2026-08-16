@@ -91,31 +91,62 @@ Repository, Next.js 16 app, Railway PostgreSQL schema, migrations.
   contributions and confidence penalties
 - ✅ Tabs without a data source say so and state what it costs the scores
 
-## Phase 7 — Sentiment and momentum ⬜
+## Phase 7 — Sentiment and momentum ✅
 
-- ⬜ `/sentiment` — market pressure dashboard and heatmap
-- ⬜ `/momentum` — B/O acceleration and deterioration, unusual volume, momentum
-  scanner. A "possible reversal" requires price/book disagreement **and** volume
-  confirmation — never price action alone.
+- ✅ `/sentiment` — market pressure dashboard, band distribution and counter heatmap
+- ✅ `/momentum` — B/O acceleration and deterioration, unusual volume, momentum
+  scanner. Each group prints its rule above its matches and the triggering
+  values beside each match. A "possible reversal" requires price/book
+  disagreement **and** volume confirmation — never price action alone.
 
-## Phase 8 — Comparison ⬜
+## Phase 8 — Comparison ✅
 
-- ⬜ `/compare` — any two securities across price, flow, book and fundamentals
-- ⬜ Percentage-normalised return charts so differently priced shares are comparable
+- ✅ `/compare` — any two securities across price, flow, book and scores
+- ✅ Returns rebased to 0% at the first session both series SHARE, so differently
+  priced shares stay comparable and neither is flattered by an earlier start
 
-## Phase 9 — Reports ⬜
+## Phase 9 — Reports ✅
 
-- ⬜ `/reports/daily/[date]`
-- ⬜ `/reports/weekly/[year]/[week]` (ISO week)
-- ⬜ `/reports/monthly/[year]/[month]`
-- ⬜ SQL-side aggregation and report caching
+- ✅ `/reports/daily/[date]`
+- ✅ `/reports/weekly/[year]/[week]` (ISO week, Monday start)
+- ✅ `/reports/monthly/[year]/[month]`
+- ✅ SQL-side aggregation on NUMERIC; one shared view component so the three
+  reports cannot drift apart
+- ⬜ Report caching
 
-## Phase 10 — Fundamentals ⬜
+## Phase 10 — Fundamentals ✅ (scoring) / 🚧 (valuation)
 
-- ⬜ Fundamentals ingestion and admin entry, including banking-specific fields
-  (NPL ratio, capital adequacy, cost/income, loan-to-deposit)
+- ✅ Financial-results CSV import (`kind=fundamentals`), separate from the
+  market pipeline because the two need different validation
+- ✅ `analytics/fundamental.ts` — 0–100 business-quality score with a general
+  model and a banking model, selected by the DATA (presence of NPL / capital
+  adequacy / cost-income figures), never by sector label or ticker
+- ✅ `fundamental_scores` table, versioned by methodology
 - ⬜ Valuation derivation (P/E, P/B, dividend yield, earnings yield, EV metrics)
 - ⬜ Corporate actions timeline
+
+## Ranking engine ✅
+
+- ✅ `ranking_models`, `fundamental_scores`, `ranking_snapshots`,
+  `ranking_entries` + migration `0001_ranking_engine.sql`
+- ✅ `analytics/ranking.ts` — Overall = Fundamental × 0.70 + Sentiment × 0.30,
+  grades, market-demand bands, five interpretation rules, eligibility, sorting
+  with full tie-breaking, rank movement
+- ✅ Sentiment is the EXISTING market-pressure score, reused not recomputed
+- ✅ No look-ahead: a ranking may only use results whose period ended and which
+  were published on or before the ranking date
+- ✅ `/rankings` with hero, research-terminal table, mobile cards, filters,
+  historical date selector served from stored snapshots
+- ✅ `/api/rankings`, `/api/rankings/latest`, `/api/rankings/[symbol]`,
+  `/api/rankings/[symbol]/history`, `POST /api/admin/rankings/recalculate`,
+  `/api/export/rankings`
+- ✅ Ranking section on the stock page, top-5 on the dashboard
+- ✅ Ranking refreshes automatically after market ingestion and after new
+  financial results are imported
+- ✅ 81 ranking unit tests, including all supplied fixtures
+- ⬜ Backtesting. Snapshots are stored so score-versus-future-return, rank
+  stability and top-decile performance can be evaluated later. **No claim is
+  made that this model predicts anything until that work is done.**
 
 ## Phase 11 — Authentication and watchlists ⬜
 

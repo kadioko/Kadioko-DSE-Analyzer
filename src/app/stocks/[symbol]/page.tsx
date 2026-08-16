@@ -17,6 +17,7 @@ import {
   NO_DATA,
 } from '@/lib/format';
 import type { PeriodRange } from '@/lib/types/market';
+import { RankingSection } from '@/components/market/ranking-section';
 import { StockView } from './stock-view';
 
 export const dynamic = 'force-dynamic';
@@ -189,6 +190,8 @@ export default async function StockPage({
               sub="See the Methodology tab for penalties"
             />
           </div>
+
+          <RankingSection symbol={instrument.symbol} />
 
           <StockView detail={detail} history={history} range={range} />
         </>

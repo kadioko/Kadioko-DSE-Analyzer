@@ -29,6 +29,7 @@ import {
   storeRawPayload,
 } from '@/lib/db/repositories/ingestion';
 import { regenerateAnalyticsForDates } from '@/lib/analytics/pipeline';
+import { generateRankingSnapshot } from '@/lib/services/ranking-service';
 
 /**
  * The import pipeline.
@@ -361,6 +362,22 @@ export async function commitImport(
 
     if (options.regenerateAnalytics !== false && preview.tradingDates.length > 0) {
       await regenerateAnalyticsForDates(preview.tradingDates);
+
+      // Rankings consume the sentiment, liquidity and confidence scores that
+      // were just regenerated, so they are refreshed in the same pass:
+      //   market_daily -> analytics -> sentiment -> ranking snapshot.
+      // A ranking failure must not fail an otherwise successful import, so it
+      // is recorded rather than thrown.
+      for (const date of preview.tradingDates) {
+        try {
+          await generateRankingSnapshot(date);
+        } catch (error) {
+          console.error(
+            `[ingestion] ranking snapshot failed for ${date}`,
+            error,
+          );
+        }
+      }
     }
 
     const status: ImportResult['status'] =
