@@ -25,6 +25,14 @@ const envSchema = z.object({
   /** Comma-separated allowlist of admin email addresses. */
   ADMIN_EMAIL: z.string().default(''),
 
+  /**
+   * Shared secret an operator presents to obtain an admin session, and the key
+   * the session cookie is signed with. Admin routes are disabled when unset.
+   * Kept separate from CRON_SECRET so a compromised scheduler cannot reach the
+   * admin surfaces.
+   */
+  ADMIN_TOKEN: z.string().default(''),
+
   /** Bearer token required by the scheduled ingestion endpoint. */
   CRON_SECRET: z.string().default(''),
 

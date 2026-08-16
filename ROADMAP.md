@@ -26,23 +26,31 @@ Repository, Next.js 16 app, Railway PostgreSQL schema, migrations.
 - ✅ NUMERIC money columns with an explicit JS conversion boundary (`src/lib/db/num.ts`)
 - ✅ `.env.example`, migration runner
 
-## Phase 2 — Instrument master 🚧
+## Phase 2 — Instrument master ✅
 
-- 🚧 Seed script for DSE instruments, ingestion sources and scoring models
-- ⬜ Instrument admin (add / edit / deactivate, shares outstanding maintenance)
+- ✅ Seed script for DSE instruments, ingestion sources and scoring models,
+  reading `data/instruments.seed.csv`. Creates **no** market data.
+- ✅ Instrument repository (upsert by symbol, shares-outstanding maintenance,
+  sector listing). Re-running the seed never deletes or deactivates.
+- ⬜ Instrument admin UI (add / edit / deactivate)
 
-## Phase 3 — CSV ingestion and validation 🚧
+## Phase 3 — CSV ingestion and validation ✅
 
 - ✅ CSV parser with column-alias mapping, day-first date handling, CSV-injection
   guards, file and row limits
 - ✅ Data-quality rule set (negative values, impossible high/low, close outside
   range, unknown symbol, malformed date, market-cap anomaly, extreme move,
   turnover/volume inconsistency, weekend date, …)
-- 🚧 Idempotent upsert pipeline with ingestion-run and ingestion-error recording
-- ⬜ `/admin/data` upload → preview → approve workflow
-- ⬜ Raw payload retention
+- ✅ Idempotent upsert reporting inserted / updated / **unchanged** separately
+- ✅ In-file duplicate detection — a repeated symbol/date is rejected rather than
+  letting the second row silently overwrite the first
+- ✅ Ingestion runs, per-row errors with raw content, raw payload retention
+- ✅ `/admin/data` upload → preview → approve workflow; preview writes nothing
+- ✅ `/admin/runs/[runId]` error inspector, grouped by rule
+- ✅ Admin authorisation: HMAC-signed httpOnly session, allowlist re-checked per
+  request, rate-limited sign-in, no client-side authorisation checks anywhere
 
-## Phase 4 — Core analytics ✅ (engine) / 🚧 (persistence)
+## Phase 4 — Core analytics ✅
 
 - ✅ `analytics/bo.ts` — ratio with explicit `NORMAL` / `NO_BID` / `NO_OFFER` /
   `EMPTY_BOOK` states, TZS book values, depth as % of market cap
@@ -55,8 +63,12 @@ Repository, Next.js 16 app, Railway PostgreSQL schema, migrations.
   excluded and reported, never imputed
 - ✅ `analytics/confidence.ts` — 0–100 confidence from named penalties
 - ✅ `analytics/market.ts` — breadth, market B/O, market pressure
-- 🚧 Persistence into `analytics_daily` and `market_daily_summary`
-- 🚧 Fixture tests (CRDB B/O ≈ 3.14, NMB, market B/O ≈ 0.87)
+- ✅ `analytics/pipeline.ts` — persistence into `analytics_daily` and
+  `market_daily_summary`, re-runnable and versioned
+- ✅ Fixture tests (CRDB B/O ≈ 3.14, NMB, market B/O ≈ 0.87)
+- ✅ 109 unit tests covering analytics, parsing and validation
+- 🚧 Database integration tests written but **not yet executed** — they skip
+  without `DATABASE_URL`. Run them against Railway before trusting an import.
 
 ## Phase 5 — Dashboard and market table ⬜
 
