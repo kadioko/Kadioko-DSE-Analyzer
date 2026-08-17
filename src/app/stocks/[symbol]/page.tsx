@@ -19,6 +19,7 @@ import {
 import type { PeriodRange } from '@/lib/types/market';
 import { RankingSection } from '@/components/market/ranking-section';
 import { ValuationSection } from '@/components/market/valuation-section';
+import { CorporateActionsSection } from '@/components/market/corporate-actions-section';
 import { StockView } from './stock-view';
 
 export const dynamic = 'force-dynamic';
@@ -195,6 +196,8 @@ export default async function StockPage({
           <RankingSection symbol={instrument.symbol} />
 
           <ValuationSection symbol={instrument.symbol} />
+
+          <CorporateActionsSection symbol={instrument.symbol} />
 
           <StockView detail={detail} history={history} range={range} />
         </>

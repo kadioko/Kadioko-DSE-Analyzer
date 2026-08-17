@@ -8,6 +8,7 @@ import {
   valuations,
 } from '@/lib/db/schema';
 import { foreignReportingSymbols } from '@/lib/db/repositories/instruments';
+import { trailingDividendsAsOf } from '@/lib/services/corporate-actions-service';
 import { toNum, toNumeric, toScore } from '@/lib/db/num';
 import {
   computeValuation,
@@ -123,7 +124,8 @@ async function fundamentalsAsOf(
 export async function regenerateValuationsForDate(
   tradingDate: string,
 ): Promise<ValuationGenerationResult> {
-  const [sessionRows, fundamentalsMap, foreignReporters] = await Promise.all([
+  const [sessionRows, fundamentalsMap, foreignReporters, dividendsByInstrument] =
+    await Promise.all([
     db
       .select({
         instrumentId: marketDaily.instrumentId,
@@ -137,6 +139,9 @@ export async function regenerateValuationsForDate(
       .where(eq(marketDaily.tradingDate, tradingDate)),
     fundamentalsAsOf(tradingDate),
     foreignReportingSymbols(),
+    // Declared dividends over the trailing twelve months. Preferred over any
+    // per-share figure in the accounts because it is what was actually paid.
+    trailingDividendsAsOf(tradingDate),
   ]);
 
   const rows = [];
@@ -155,7 +160,14 @@ export async function regenerateValuationsForDate(
         toNum(f?.sharesOutstanding ?? null) ?? toNum(session.sharesOutstanding),
       marketCapTzs: toNum(session.marketCapTzs),
       eps: toNum(f?.eps ?? null),
-      dps: toNum(f?.dps ?? null),
+      // Declared dividends win. They are already a trailing-twelve-month total,
+      // so the valuation engine must not annualise them again.
+      dps:
+        dividendsByInstrument.get(session.instrumentId)?.dps ??
+        toNum(f?.dps ?? null),
+      dividendIsTrailingTwelveMonths: dividendsByInstrument.has(
+        session.instrumentId,
+      ),
       bookValuePerShare: toNum(f?.bookValuePerShare ?? null),
       netIncome: toNum(f?.netIncome ?? null),
       totalEquity: toNum(f?.totalEquity ?? null),

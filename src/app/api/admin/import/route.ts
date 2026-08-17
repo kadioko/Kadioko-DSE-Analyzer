@@ -2,6 +2,8 @@ import { clientKey, fail, handle, ok, rateLimit } from '@/lib/api';
 import { requireAdmin } from '@/lib/auth';
 import { commitImport, previewImport } from '@/lib/ingestion/importer';
 import { importFundamentalsCsv } from '@/lib/ingestion/fundamentals-import';
+import { importCorporateActionsCsv } from '@/lib/ingestion/corporate-actions-import';
+import { regenerateAnalyticsForDates } from '@/lib/analytics/pipeline';
 import { generateRankingSnapshot, latestRankingDate } from '@/lib/services/ranking-service';
 import { regenerateValuationsForDate } from '@/lib/services/valuation-service';
 import { latestTradingDate } from '@/lib/db/repositories/market';
@@ -77,6 +79,24 @@ export async function POST(request: Request) {
       }
 
       return ok({ ...result, kind: 'fundamentals', rankingRegenerated });
+    }
+
+    // Corporate actions change dividend yield, which feeds the Opportunity
+    // score, so the derived chain is rebuilt for the latest session.
+    if (kind === 'corporate_actions') {
+      const result = await importCorporateActionsCsv(content);
+
+      let regenerated: string | null = null;
+      if (result.accepted > 0) {
+        const date = await latestTradingDate();
+        if (date) {
+          await regenerateAnalyticsForDates([date]);
+          await generateRankingSnapshot(date);
+          regenerated = date;
+        }
+      }
+
+      return ok({ ...result, kind: 'corporate_actions', regenerated });
     }
 
     if (mode === 'preview') {

@@ -252,3 +252,44 @@ describe('plausibility bounds', () => {
     expect(v.epsUsed).toBeCloseTo(0.000001, 10);
   });
 });
+
+describe('trailing twelve-month dividends', () => {
+  it('does not annualise a figure that is already annual', () => {
+    // Declared dividends summed over 12 months are already a yearly total.
+    // Annualising an H1 period again would double the yield.
+    const v = computeValuation({
+      ...base,
+      closePrice: 2700,
+      dps: 65, // 45 final + 20 interim, both declared
+      periodType: 'H1',
+      dividendIsTrailingTwelveMonths: true,
+    });
+    expect(v.dividendYield).toBeCloseTo((65 / 2700) * 100, 6);
+  });
+
+  it('still annualises a per-period figure from the accounts', () => {
+    const v = computeValuation({
+      ...base,
+      closePrice: 2700,
+      dps: 65,
+      periodType: 'H1',
+      dividendIsTrailingTwelveMonths: false,
+    });
+    expect(v.dividendYield).toBeCloseTo((130 / 2700) * 100, 6);
+  });
+
+  it('withholds every multiple for a foreign-currency reporter', () => {
+    // A TZS price over KES book value is a currency error, not a ratio.
+    const v = computeValuation({
+      ...base,
+      netIncome: 10_000_000,
+      totalEquity: 50_000_000,
+      dps: 5,
+      foreignReportingCurrency: true,
+    });
+    expect(v.peRatio).toBeNull();
+    expect(v.pbRatio).toBeNull();
+    expect(v.dividendYield).toBeNull();
+    expect(v.notes).toContain('REPORTING_CURRENCY_MISMATCH');
+  });
+});

@@ -104,6 +104,12 @@ export interface ValuationInput {
    * trading currency. No multiple is computed in that case.
    */
   foreignReportingCurrency?: boolean;
+
+  /**
+   * True when `dps` is already a trailing twelve-month total (summed from
+   * declared dividends) and must NOT be annualised again.
+   */
+  dividendIsTrailingTwelveMonths?: boolean;
 }
 
 export interface ValuationResult {
@@ -231,7 +237,12 @@ export function computeValuation(input: ValuationInput): ValuationResult {
     notes.push('NO_DIVIDEND_DATA');
   } else if (input.dps >= 0) {
     // A reported zero dividend IS a real observation and yields 0%.
-    const annualDps = factor > 1 ? input.dps * factor : input.dps;
+    // A trailing-twelve-month total is already annual; annualising it again
+    // would double or quadruple the yield.
+    const annualDps =
+      input.dividendIsTrailingTwelveMonths || factor === 1
+        ? input.dps
+        : input.dps * factor;
     dividendYield = (annualDps / price) * 100;
   }
 

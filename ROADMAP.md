@@ -141,10 +141,15 @@ Repository, Next.js 16 app, Railway PostgreSQL schema, migrations.
   `REPORTING_CURRENCY_MISMATCH` rather than computed against a TZS price.
 - ✅ Growth is refused across a reporting-scale change, which would otherwise
   read as ~99,900% growth.
-- ⬜ Dividend yield — **no dividend-per-share data exists in any source yet**, so
-  the pillar stays excluded. A company that pays no dividend and one whose
-  dividend has not been loaded are different facts.
-- ⬜ Corporate actions timeline
+- ✅ Corporate-actions import (`kind=corporate_actions`): dividends, splits,
+  bonus and rights issues, AGMs, suspensions. A dividend without an amount is
+  rejected rather than recorded as a zero payment.
+- ✅ Dividend yield from dividends DECLARED in the trailing twelve months, not
+  from annualising a single interim payment. A company that declared one
+  interim dividend has not committed to a second.
+- ✅ Corporate-action timeline on the stock page, with ex-date and payment date
+- ⬜ **No dividend data exists in any current source**, so the pillar is still
+  excluded in practice. The pipeline is verified end to end; it needs data.
 
 ## Ranking engine ✅
 

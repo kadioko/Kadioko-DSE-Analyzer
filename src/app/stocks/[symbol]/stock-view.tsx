@@ -157,19 +157,19 @@ export function StockView({
       ) : null}
 
       {tab === 'Dividends' ? (
-        <NotYetAvailable
-          title="Dividend data unavailable"
-          what="Declared dividends per share, ex-dates and payment dates"
-          consequence="Dividend yield therefore cannot be computed, and that pillar (10% of the Opportunity score) is excluded rather than treated as a zero yield. A company that pays no dividend and a company whose dividend we have not loaded are different facts, and the platform does not conflate them."
-        />
+        <Notice tone="neutral" title="Dividends are in the corporate actions panel">
+          Declared dividends, ex-dates and payment dates are listed above this
+          tab strip. Yield is computed from dividends actually declared in the
+          trailing twelve months. Where none are on file the pillar is excluded
+          from the Opportunity score rather than treated as a zero yield.
+        </Notice>
       ) : null}
 
       {tab === 'Corporate Actions' ? (
-        <NotYetAvailable
-          title="Corporate actions unavailable"
-          what="Dividends, splits, bonus and rights issues, AGMs, suspensions"
-          consequence="Without these, an extreme price movement cannot be automatically attributed to a corporate action, and is flagged for manual review at import instead."
-        />
+        <Notice tone="neutral" title="Shown above">
+          The corporate-action timeline is above this tab strip, with the ex-date
+          and payment date for every event on file.
+        </Notice>
       ) : null}
 
       {tab === 'Methodology' ? <MethodologyTab detail={detail} /> : null}
