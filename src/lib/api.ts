@@ -62,58 +62,12 @@ export async function handle(
 /* Rate limiting                                                              */
 /* -------------------------------------------------------------------------- */
 
-interface Bucket {
-  count: number;
-  resetAt: number;
-}
-
-const buckets = new Map<string, Bucket>();
-
 /**
- * Fixed-window in-process rate limiter.
+ * Re-exported from src/lib/rate-limit.ts, which keeps counters in PostgreSQL.
  *
- * Adequate for a single instance and for the surfaces it guards (admin login,
- * import). It is explicitly NOT a distributed limiter: with several instances
- * each holds its own counter. Moving to Redis is a Phase 14 item, and this
- * comment exists so nobody assumes stronger guarantees than it provides.
+ * This used to be an in-process fixed-window map. That is wrong the moment more
+ * than one instance runs: each gets its own allowance, so a limit of 5 across 3
+ * instances is really 15.
  */
-export function rateLimit(
-  key: string,
-  limit: number,
-  windowMs: number,
-): { allowed: boolean; remaining: number; resetAt: number } {
-  const now = Date.now();
-  const bucket = buckets.get(key);
-
-  if (!bucket || bucket.resetAt <= now) {
-    const resetAt = now + windowMs;
-    buckets.set(key, { count: 1, resetAt });
-    return { allowed: true, remaining: limit - 1, resetAt };
-  }
-
-  bucket.count += 1;
-  return {
-    allowed: bucket.count <= limit,
-    remaining: Math.max(0, limit - bucket.count),
-    resetAt: bucket.resetAt,
-  };
-}
-
-/** Best-effort client identity for rate limiting. */
-export function clientKey(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) return forwarded.split(',')[0]?.trim() ?? 'unknown';
-  return request.headers.get('x-real-ip') ?? 'unknown';
-}
-
-/** Periodically drop expired buckets so the map cannot grow without bound. */
-if (typeof setInterval !== 'undefined') {
-  const timer = setInterval(() => {
-    const now = Date.now();
-    for (const [key, bucket] of buckets) {
-      if (bucket.resetAt <= now) buckets.delete(key);
-    }
-  }, 60_000);
-  // Do not hold the process open in the worker or during tests.
-  timer.unref?.();
-}
+export { rateLimit, clientKey, pruneRateLimits } from '@/lib/rate-limit';
+export type { RateLimitResult } from '@/lib/rate-limit';

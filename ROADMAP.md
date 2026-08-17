@@ -201,10 +201,19 @@ Repository, Next.js 16 app, Railway PostgreSQL schema, migrations.
   may not introduce a number that is not in it, invent fundamentals, or invent
   market news.
 
-## Phase 14 — Testing, security, performance ⬜
+## Phase 14 — Testing, security, performance 🚧
 
-- ⬜ Unit, analytics, ingestion, database, API and critical UI tests
-- ⬜ Rate limiting, admin authorisation, security headers (headers already set)
+- ✅ CI (`.github/workflows/verify.yml`) runs typecheck, lint, the FULL test
+  suite against a real PostgreSQL service, the production build and a worker
+  smoke test. The database tests skip without `DATABASE_URL`, so CI provides
+  one — otherwise a broken migration would pass silently.
+- ✅ Rate limiting moved from an in-process map to PostgreSQL. An in-memory
+  counter gives each instance its own allowance, so a limit of 5 across 3
+  instances is really 15. The check is one atomic statement; read-then-write
+  would race. It fails OPEN on a database error, with a `degraded` flag, because
+  failing closed would turn a blip into a lockout of every guarded route.
+- ✅ Unit, analytics, ingestion, ranking, valuation, units and database tests
+- ⬜ API and critical UI tests
 - ⬜ Query plans, report caching, lazy chart loading
 
 ## Phase 15 — Production polish ⬜

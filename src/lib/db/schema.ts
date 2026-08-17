@@ -978,6 +978,29 @@ export type BoState = (typeof boStateEnum.enumValues)[number];
 export type PressureSignal = (typeof pressureSignalEnum.enumValues)[number];
 export type ValidationStatus = (typeof validationStatusEnum.enumValues)[number];
 
+/**
+ * Fixed-window rate-limit counters.
+ *
+ * Kept in PostgreSQL rather than in process memory because Railway may run
+ * several instances of the web service: an in-memory counter would give each
+ * instance its own allowance, so the effective limit would be the configured
+ * one multiplied by the instance count.
+ */
+export const rateLimits = pgTable(
+  'rate_limits',
+  {
+    /** Bucket identity, e.g. "admin-login:203.0.113.4". */
+    key: varchar('key', { length: 200 }).primaryKey(),
+    /** Start of the current window. */
+    windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+    count: integer('count').notNull().default(0),
+    updatedAt,
+  },
+  (t) => [index('rate_limits_window_idx').on(t.windowStart)],
+);
+
+export type RateLimitRow = typeof rateLimits.$inferSelect;
+
 /* ========================================================================== */
 /* Ranking engine                                                             */
 /*                                                                            */

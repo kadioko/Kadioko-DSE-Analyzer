@@ -19,7 +19,7 @@ const bodySchema = z.object({
  */
 export async function POST(request: Request) {
   return handle(async () => {
-    const limit = rateLimit(`admin-login:${clientKey(request)}`, 5, 15 * 60_000);
+    const limit = await rateLimit(`admin-login:${clientKey(request)}`, 5, 15 * 60_000);
     if (!limit.allowed) {
       return fail(
         429,

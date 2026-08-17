@@ -26,7 +26,7 @@ export async function GET(request: Request) {
       return fail(503, 'DATABASE_NOT_CONFIGURED', 'No database is configured.');
     }
 
-    const limit = rateLimit(`rankings:${clientKey(request)}`, 120, 60_000);
+    const limit = await rateLimit(`rankings:${clientKey(request)}`, 120, 60_000);
     if (!limit.allowed) {
       return fail(429, 'RATE_LIMITED', 'Too many requests. Try again shortly.');
     }

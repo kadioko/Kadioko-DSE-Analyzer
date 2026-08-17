@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       return fail(503, 'DATABASE_NOT_CONFIGURED', 'No database is configured.');
     }
 
-    const limiter = rateLimit(`ranking-recalc:${clientKey(request)}`, 10, 60_000);
+    const limiter = await rateLimit(`ranking-recalc:${clientKey(request)}`, 10, 60_000);
     if (!limiter.allowed) {
       return fail(429, 'RATE_LIMITED', 'Too many recalculation requests.');
     }

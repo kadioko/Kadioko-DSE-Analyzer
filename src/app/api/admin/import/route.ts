@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   return handle(async () => {
     const session = await requireAdmin();
 
-    const limit = rateLimit(`admin-import:${clientKey(request)}`, 20, 60_000);
+    const limit = await rateLimit(`admin-import:${clientKey(request)}`, 20, 60_000);
     if (!limit.allowed) {
       return fail(429, 'RATE_LIMITED', 'Too many import requests. Try again shortly.');
     }

@@ -47,7 +47,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const limit = rateLimit(`export:${clientKey(request)}`, 60, 60_000);
+    const limit = await rateLimit(`export:${clientKey(request)}`, 60, 60_000);
     if (!limit.allowed) {
       return fail(429, 'RATE_LIMITED', 'Too many export requests. Try again shortly.');
     }
