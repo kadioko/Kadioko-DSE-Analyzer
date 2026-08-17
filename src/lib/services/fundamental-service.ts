@@ -35,9 +35,24 @@ function toInput(
   prior: FundamentalsRow | undefined,
 ): FundamentalInput {
   const revenue = toNum(current.revenue);
-  const priorRevenue = toNum(prior?.revenue);
   const eps = toNum(current.eps);
-  const priorEps = toNum(prior?.eps);
+
+  /*
+   * Growth is only computed when the two periods were stored at the SAME
+   * reporting scale.
+   *
+   * Monetary figures are normalised to absolute TZS at import, but the scale is
+   * inferred per row. If a period resolved to thousands while its comparative
+   * resolved to absolute units, the ratio between them would be wrong by a
+   * factor of a thousand and would read as 99,900% growth. Comparing across a
+   * scale change is refused rather than reported.
+   */
+  const scalesMatch =
+    prior !== undefined &&
+    toNum(current.reportingScale) === toNum(prior.reportingScale);
+
+  const priorRevenue = scalesMatch ? toNum(prior?.revenue) : null;
+  const priorEps = scalesMatch ? toNum(prior?.eps) : null;
 
   return {
     roePct: toNum(current.roe),

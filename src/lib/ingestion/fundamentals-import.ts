@@ -6,10 +6,18 @@ import { fundamentals, type NewInstrument } from '@/lib/db/schema';
 import { toNumeric, toQty } from '@/lib/db/num';
 import { parseNumber, parseTradingDate, sanitizeText } from './parse';
 import {
+  foreignReportingSymbols,
   sharesOutstandingMap,
   symbolIdMap,
 } from '@/lib/db/repositories/instruments';
 import { regenerateFundamentalScores } from '@/lib/services/fundamental-service';
+import {
+  applyScale,
+  inferReportingScale,
+  parseDeclaredScale,
+} from '@/lib/analytics/units';
+import { periodsPerYear } from '@/lib/analytics/period';
+import { latestCloseBySymbol } from '@/lib/db/repositories/market';
 import type { ValidationIssue } from '@/lib/types/market';
 
 /**
@@ -72,6 +80,7 @@ const FIELDS = {
   source: ['source'],
   sourceUrl: ['sourceurl', 'url'],
   verified: ['verified'],
+  reportingScale: ['reportingscale', 'scale', 'units', 'figuresin'],
 } as const;
 
 type FieldName = keyof typeof FIELDS;
@@ -132,10 +141,14 @@ export async function importFundamentalsCsv(
     ]);
   }
 
-  const [symbolIds, sharesBySymbol] = await Promise.all([
-    symbolIdMap(),
-    sharesOutstandingMap(),
-  ]);
+  const [symbolIds, sharesBySymbol, closeBySymbol, foreignReporters] =
+    await Promise.all([
+      symbolIdMap(),
+      sharesOutstandingMap(),
+      // Needed to test a candidate reporting scale against market capitalisation.
+      latestCloseBySymbol(),
+      foreignReportingSymbols(),
+    ]);
   const cell = (row: Record<string, unknown>, field: FieldName) => {
     const col = column[field];
     return col === null ? null : row[col];
@@ -233,6 +246,7 @@ export async function importFundamentalsCsv(
       netIncome !== null && totalEquity !== null && totalEquity > 0
         ? (netIncome / totalEquity) * 100
         : null;
+    // Ratios are scale-invariant, so they are computed from the raw figures.
     const derivedRoa =
       netIncome !== null && totalAssets !== null && totalAssets > 0
         ? (netIncome / totalAssets) * 100
@@ -257,16 +271,86 @@ export async function importFundamentalsCsv(
     // publish a per-share number. The share count comes from the file first,
     // then the instrument master.
     const shares = num('sharesOutstanding') ?? sharesBySymbol.get(symbol) ?? null;
-    const derivedEps =
-      netIncome !== null && shares !== null && shares > 0
-        ? netIncome / shares
+    /*
+     * Reporting scale.
+     *
+     * DSE issuers file in inconsistent units - some absolute TZS, most
+     * thousands. Ratios are immune because the scale cancels, but per-share
+     * figures are not, so this must be settled before EPS or book value are
+     * derived. A declared scale wins; otherwise it is inferred, and if the
+     * evidence is not decisive the figures are stored exactly as reported.
+     */
+    const declaredScale = parseDeclaredScale(cell(row, 'reportingScale'));
+    const foreignCurrency = foreignReporters.has(symbol);
+
+    /*
+     * Inference compares reported figures against market capitalisation, which
+     * is only valid when both are in the same currency. A cross-listed issuer
+     * reports in its home currency and trades here in TZS, so the test would
+     * absorb the exchange rate into the scale factor and return a
+     * plausible-looking but wrong answer. Observed directly in this data: five
+     * Kenyan issuers produced three different "scales" for the same reporting
+     * convention. Inference is therefore skipped unless a scale is declared.
+     */
+    const scaleResult =
+      foreignCurrency && declaredScale === null
+        ? {
+            scale: 1,
+            source: 'NOT_APPLICABLE' as const,
+            plausible: [] as number[],
+            reason:
+              `${symbol} reports in a currency other than its trading currency, so the reporting scale cannot be inferred from market capitalisation. Figures are stored exactly as reported and per-share multiples are withheld.`,
+          }
+        : inferReportingScale({
+            declaredScale,
+            sharesOutstanding: shares,
+            closePrice: closeBySymbol.get(symbol) ?? null,
+            totalEquity,
+            revenue,
+            periodsPerYear: periodsPerYear(rawType as PeriodType),
+          });
+
+    const scale = scaleResult.scale;
+    if (scaleResult.source === 'UNDETERMINED') {
+      issues.push({
+        code: 'REPORTING_SCALE_UNDETERMINED',
+        severity: 'WARNING',
+        message: `${symbol} ${periodEnd}: ${scaleResult.reason}`,
+        rowNumber,
+        symbol,
+      });
+    } else if (scaleResult.source === 'INFERRED' && scale !== 1) {
+      issues.push({
+        code: 'REPORTING_SCALE_INFERRED',
+        severity: 'WARNING',
+        message: `${symbol} ${periodEnd}: ${scaleResult.reason} Monetary figures were multiplied by ${scale.toLocaleString()}. Add a "reporting_scale" column to declare it explicitly.`,
+        rowNumber,
+        symbol,
+      });
+    }
+
+    // Monetary totals are normalised to absolute TZS. Ratios, percentages and
+    // per-share figures reported by the issuer are NOT scaled.
+    const sc = (v: number | null) => applyScale(v, scale);
+
+    const nRevenue = sc(revenue);
+    const nNetIncome = sc(netIncome);
+    const nTotalEquity = sc(totalEquity);
+    const nGrossProfit = sc(grossProfit);
+    const nTotalDebt = sc(totalDebt);
+    const nTotalAssets = sc(totalAssets);
+    const nOcf = sc(ocf);
+    const nCapex = sc(capex);
+
+    // Derived per-share figures use the NORMALISED totals.
+    const scaledEps =
+      nNetIncome !== null && shares !== null && shares > 0
+        ? nNetIncome / shares
         : null;
-    const derivedBvps =
-      totalEquity !== null && shares !== null && shares > 0
-        ? totalEquity / shares
+    const scaledBvps =
+      nTotalEquity !== null && shares !== null && shares > 0
+        ? nTotalEquity / shares
         : null;
-    const freeCashFlow =
-      ocf !== null && capex !== null ? ocf - capex : null;
 
     const verifiedRaw = sanitizeText(cell(row, 'verified'));
 
@@ -275,24 +359,24 @@ export async function importFundamentalsCsv(
       periodEnd,
       periodType: rawType as PeriodType,
       fiscalYear: Number(periodEnd.slice(0, 4)),
-      revenue: toNumeric(revenue, 4),
-      grossProfit: toNumeric(grossProfit, 4),
-      operatingIncome: toNumeric(num('operatingIncome'), 4),
-      profitBeforeTax: toNumeric(num('profitBeforeTax'), 4),
-      netIncome: toNumeric(netIncome, 4),
-      totalAssets: toNumeric(totalAssets, 4),
-      totalEquity: toNumeric(totalEquity, 4),
-      totalLiabilities: toNumeric(num('totalLiabilities'), 4),
-      totalDebt: toNumeric(totalDebt, 4),
-      cashAndEquivalents: toNumeric(num('cashAndEquivalents'), 4),
-      operatingCashFlow: toNumeric(ocf, 4),
-      capitalExpenditure: toNumeric(capex, 4),
-      freeCashFlow: toNumeric(freeCashFlow, 4),
-      eps: toNumeric(eps ?? derivedEps, 4),
+      revenue: toNumeric(nRevenue, 4),
+      grossProfit: toNumeric(nGrossProfit, 4),
+      operatingIncome: toNumeric(sc(num('operatingIncome')), 4),
+      profitBeforeTax: toNumeric(sc(num('profitBeforeTax')), 4),
+      netIncome: toNumeric(nNetIncome, 4),
+      totalAssets: toNumeric(nTotalAssets, 4),
+      totalEquity: toNumeric(nTotalEquity, 4),
+      totalLiabilities: toNumeric(sc(num('totalLiabilities')), 4),
+      totalDebt: toNumeric(nTotalDebt, 4),
+      cashAndEquivalents: toNumeric(sc(num('cashAndEquivalents')), 4),
+      operatingCashFlow: toNumeric(nOcf, 4),
+      capitalExpenditure: toNumeric(nCapex, 4),
+      freeCashFlow: toNumeric(nOcf !== null && nCapex !== null ? nOcf - nCapex : null, 4),
+      eps: toNumeric(eps ?? scaledEps, 4),
       // No fallback: a dividend that was not reported is unknown, and must not
       // become a zero that would render as a 0.00% yield.
       dps: toNumeric(dps, 4),
-      bookValuePerShare: toNumeric(num('bookValuePerShare') ?? derivedBvps, 4),
+      bookValuePerShare: toNumeric(num('bookValuePerShare') ?? scaledBvps, 4),
       sharesOutstanding: toQty(shares),
       roe: toNumeric(num('roe') ?? derivedRoe, 6),
       roa: toNumeric(num('roa') ?? derivedRoa, 6),
@@ -300,9 +384,9 @@ export async function importFundamentalsCsv(
       netMargin: toNumeric(num('netMargin') ?? derivedNetMargin, 6),
       debtToEquity: toNumeric(num('debtToEquity') ?? derivedGearing, 6),
       payoutRatio: toNumeric(num('payoutRatio') ?? derivedPayout, 6),
-      loansAndAdvances: toNumeric(num('loansAndAdvances'), 4),
-      customerDeposits: toNumeric(num('customerDeposits'), 4),
-      netInterestIncome: toNumeric(num('netInterestIncome'), 4),
+      loansAndAdvances: toNumeric(sc(num('loansAndAdvances')), 4),
+      customerDeposits: toNumeric(sc(num('customerDeposits')), 4),
+      netInterestIncome: toNumeric(sc(num('netInterestIncome')), 4),
       netInterestMargin: toNumeric(num('netInterestMargin'), 6),
       nplRatio: toNumeric(num('nplRatio'), 6),
       capitalAdequacyRatio: toNumeric(num('capitalAdequacyRatio'), 6),
@@ -312,6 +396,9 @@ export async function importFundamentalsCsv(
       source: sanitizeText(cell(row, 'source')),
       sourceUrl: sanitizeText(cell(row, 'sourceUrl')),
       verified: verifiedRaw !== null && /^(true|yes|y|1)$/i.test(verifiedRaw),
+      reportingScale: scale.toFixed(2),
+      scaleSource: scaleResult.source,
+      scaleNote: scaleResult.reason,
       publishedAt: (() => {
         const d = parseTradingDate(cell(row, 'publishedAt'));
         return d ? new Date(`${d}T00:00:00Z`) : null;
@@ -360,6 +447,7 @@ export async function importFundamentalsCsv(
       ],
       set: Object.fromEntries(
         [
+          'reporting_scale', 'scale_source', 'scale_note',
           'revenue', 'gross_profit', 'operating_income', 'profit_before_tax',
           'net_income', 'total_assets', 'total_equity', 'total_liabilities',
           'total_debt', 'cash_and_equivalents', 'operating_cash_flow',

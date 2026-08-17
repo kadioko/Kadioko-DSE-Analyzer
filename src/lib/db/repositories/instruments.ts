@@ -130,6 +130,31 @@ export async function setInstrumentActive(
     .where(eq(instruments.symbol, symbol.toUpperCase()));
 }
 
+/**
+ * Symbols whose financial statements are in a different currency from the one
+ * they trade in.
+ *
+ * Cross-listed issuers (Kenyan companies on the DSE) report in their home
+ * currency while trading in TZS. Any per-share metric that mixes the two is
+ * wrong by the exchange rate, and no FX series is held, so those metrics must
+ * be withheld rather than computed.
+ */
+export async function foreignReportingSymbols(): Promise<Set<string>> {
+  const rows = await db
+    .select({
+      symbol: instruments.symbol,
+      isCrossListed: instruments.isCrossListed,
+      country: instruments.countryOfIncorporation,
+    })
+    .from(instruments);
+
+  return new Set(
+    rows
+      .filter((r) => r.isCrossListed || r.country !== 'TZ')
+      .map((r) => r.symbol),
+  );
+}
+
 /** Distinct sectors present in the master, for the market-table filter. */
 export async function listSectors(): Promise<string[]> {
   const rows = await db

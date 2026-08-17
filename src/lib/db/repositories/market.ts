@@ -309,3 +309,32 @@ export async function historyDepth(
     );
   return rows[0]?.count ?? 0;
 }
+
+/**
+ * Most recent close per symbol.
+ *
+ * Used by the fundamentals importer to test a candidate reporting scale against
+ * market capitalisation. Reads the latest close each instrument has, not the
+ * latest market date, so a counter that has not traded recently still
+ * contributes its last known price.
+ */
+export async function latestCloseBySymbol(): Promise<Map<string, number>> {
+  const result = await db.execute(raw`
+    select distinct on (i.symbol)
+      i.symbol        as symbol,
+      md.close        as close
+    from market_daily md
+    join instruments i on i.id = md.instrument_id
+    where md.close is not null
+    order by i.symbol, md.trading_date desc
+  `);
+
+  const rows = result as unknown as Array<Record<string, unknown>>;
+  const map = new Map<string, number>();
+  for (const row of rows) {
+    const symbol = row.symbol as string | undefined;
+    const close = toNum(row.close as string | null);
+    if (symbol && close !== null && close > 0) map.set(symbol, close);
+  }
+  return map;
+}

@@ -15,6 +15,13 @@
       "when": 1786883623871,
       "tag": "0001_ranking_engine",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786977139157,
+      "tag": "0002_fundamentals_reporting_scale",
+      "breakpoints": true
     }
   ]
 }

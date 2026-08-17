@@ -7,6 +7,7 @@ import {
   marketDaily,
   valuations,
 } from '@/lib/db/schema';
+import { foreignReportingSymbols } from '@/lib/db/repositories/instruments';
 import { toNum, toNumeric, toScore } from '@/lib/db/num';
 import {
   computeValuation,
@@ -122,10 +123,11 @@ async function fundamentalsAsOf(
 export async function regenerateValuationsForDate(
   tradingDate: string,
 ): Promise<ValuationGenerationResult> {
-  const [sessionRows, fundamentalsMap] = await Promise.all([
+  const [sessionRows, fundamentalsMap, foreignReporters] = await Promise.all([
     db
       .select({
         instrumentId: marketDaily.instrumentId,
+        symbol: instruments.symbol,
         close: marketDaily.close,
         marketCapTzs: marketDaily.marketCapTzs,
         sharesOutstanding: instruments.sharesOutstanding,
@@ -134,6 +136,7 @@ export async function regenerateValuationsForDate(
       .innerJoin(instruments, eq(marketDaily.instrumentId, instruments.id))
       .where(eq(marketDaily.tradingDate, tradingDate)),
     fundamentalsAsOf(tradingDate),
+    foreignReportingSymbols(),
   ]);
 
   const rows = [];
@@ -160,6 +163,7 @@ export async function regenerateValuationsForDate(
       totalDebt: toNum(f?.totalDebt ?? null),
       cashAndEquivalents: toNum(f?.cashAndEquivalents ?? null),
       periodType: f?.periodType ?? null,
+      foreignReportingCurrency: foreignReporters.has(session.symbol),
     });
 
     if (result.peRatio !== null) withPe += 1;

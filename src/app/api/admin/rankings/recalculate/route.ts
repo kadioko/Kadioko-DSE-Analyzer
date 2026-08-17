@@ -4,7 +4,7 @@ import { requireAdmin } from '@/lib/auth';
 import { isDatabaseConfigured } from '@/lib/env';
 import { generateRankingSnapshot } from '@/lib/services/ranking-service';
 import { regenerateFundamentalScores } from '@/lib/services/fundamental-service';
-import { regenerateValuationsForDates } from '@/lib/services/valuation-service';
+import { regenerateAnalyticsForDates } from '@/lib/analytics/pipeline';
 import { latestTradingDate, listTradingDates } from '@/lib/db/repositories/market';
 
 export const runtime = 'nodejs';
@@ -79,10 +79,19 @@ export async function POST(request: Request) {
       dates = [latest];
     }
 
-    // Valuations sit between fundamentals and the ranking: a new financial
-    // period changes the multiples, which feed the Opportunity score. Rebuild
-    // them for every date being processed before the snapshots are generated.
-    const valuationResults = await regenerateValuationsForDates(dates);
+    /*
+     * The full derived chain, in dependency order:
+     *
+     *   fundamentals -> valuations -> analytics -> ranking
+     *
+     * Analytics must be regenerated, not just valuations: the Opportunity
+     * score lives in analytics_daily and consumes the multiples. Rebuilding
+     * valuations alone leaves Opportunity computed against whatever the
+     * multiples were at the last analytics run, which after a fundamentals
+     * change is stale. regenerateAnalyticsForDates regenerates valuations
+     * itself, so this one call covers both.
+     */
+    const analyticsResults = await regenerateAnalyticsForDates(dates);
 
     const results = [];
     for (const d of dates) {
@@ -95,12 +104,10 @@ export async function POST(request: Request) {
       triggeredBy: session.email,
       datesProcessed: results.length,
       snapshots: results,
-      valuations: {
-        datesProcessed: valuationResults.length,
-        withPe: valuationResults.reduce((n, v) => n + v.withPe, 0),
-        withPb: valuationResults.reduce((n, v) => n + v.withPb, 0),
-        withDividendYield: valuationResults.reduce(
-          (n, v) => n + v.withDividendYield,
+      analytics: {
+        datesProcessed: analyticsResults.length,
+        instrumentsProcessed: analyticsResults.reduce(
+          (n, a) => n + a.instrumentsProcessed,
           0,
         ),
       },

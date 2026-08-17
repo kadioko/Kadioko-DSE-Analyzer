@@ -118,6 +118,14 @@ export const corporateActionTypeEnum = pgEnum('corporate_action_type', [
 
 export const userRoleEnum = pgEnum('user_role', ['VIEWER', 'ANALYST', 'ADMIN']);
 
+/** How the reporting scale of a set of financial statements was established. */
+export const scaleSourceEnum = pgEnum('scale_source', [
+  'DECLARED',
+  'INFERRED',
+  'UNDETERMINED',
+  'NOT_APPLICABLE',
+]);
+
 export const alertTypeEnum = pgEnum('alert_type', [
   'BO_RATIO_THRESHOLD',
   'BO_MOMENTUM_THRESHOLD',
@@ -613,6 +621,19 @@ export const fundamentals = pgTable(
     tier1CapitalRatio: pct('tier1_capital_ratio'),
     costToIncomeRatio: pct('cost_to_income_ratio'),
     loanToDepositRatio: pct('loan_to_deposit_ratio'),
+
+    /**
+     * Multiplier that was applied to convert the source figures to absolute
+     * TZS. Monetary columns above are stored ALREADY NORMALISED; this records
+     * what was done so it can be audited or reversed.
+     */
+    reportingScale: numeric('reporting_scale', { precision: 12, scale: 2 })
+      .notNull()
+      .default('1'),
+    scaleSource: scaleSourceEnum('scale_source')
+      .notNull()
+      .default('NOT_APPLICABLE'),
+    scaleNote: text('scale_note'),
 
     source: varchar('source', { length: 200 }),
     sourceUrl: text('source_url'),

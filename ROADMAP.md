@@ -131,6 +131,16 @@ Repository, Next.js 16 app, Railway PostgreSQL schema, migrations.
 - ✅ Plausibility bounds: a multiple far outside any credible range is withheld
   as a suspected unit mismatch rather than published. Nothing is silently
   rescaled.
+- ✅ Reporting-scale normalisation (`analytics/units.ts`). DSE issuers file in
+  inconsistent units; ratios are immune but per-share figures are not. A scale
+  is accepted only when exactly one candidate is plausible, tested primarily
+  against book value. Declared scales always win. Ambiguous or implausible
+  evidence leaves figures exactly as reported.
+- ✅ Cross-listed issuers report in a foreign currency, so scale inference would
+  absorb the exchange rate. Inference is skipped and multiples are withheld with
+  `REPORTING_CURRENCY_MISMATCH` rather than computed against a TZS price.
+- ✅ Growth is refused across a reporting-scale change, which would otherwise
+  read as ~99,900% growth.
 - ⬜ Dividend yield — **no dividend-per-share data exists in any source yet**, so
   the pillar stays excluded. A company that pays no dividend and one whose
   dividend has not been loaded are different facts.

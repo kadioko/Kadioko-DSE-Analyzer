@@ -33,6 +33,7 @@ export type ValuationNote =
   | 'NO_REVENUE'
   | 'ANNUALISED_FROM_INTERIM'
   | 'IMPLAUSIBLE_MULTIPLE_UNIT_MISMATCH'
+  | 'REPORTING_CURRENCY_MISMATCH'
   | 'EPS_DERIVED_FROM_NET_INCOME'
   | 'BOOK_VALUE_DERIVED_FROM_EQUITY';
 
@@ -49,6 +50,8 @@ export const VALUATION_NOTE_LABELS: Record<ValuationNote, string> = {
     'Shares outstanding are unknown, so per-share figures cannot be derived.',
   NO_PRICE: 'No closing price is available for this date.',
   NO_REVENUE: 'No revenue figure is on file, so price/sales cannot be computed.',
+  REPORTING_CURRENCY_MISMATCH:
+    'This security is cross-listed and reports its financial statements in a different currency from the one it trades in. Per-share multiples would be wrong by the exchange rate, and no FX series is held, so they are withheld rather than computed.',
   IMPLAUSIBLE_MULTIPLE_UNIT_MISMATCH:
     'The computed multiple is far outside any plausible range, which almost always means the financial statements are reported in a different unit (thousands or millions) from the share price and share count. The multiple is withheld rather than published, and the source figures need checking.',
   ANNUALISED_FROM_INTERIM:
@@ -95,6 +98,12 @@ export interface ValuationInput {
 
   /** Drives annualisation of interim earnings. */
   periodType: PeriodType | null;
+
+  /**
+   * True when the statements are denominated in a currency other than the
+   * trading currency. No multiple is computed in that case.
+   */
+  foreignReportingCurrency?: boolean;
 }
 
 export interface ValuationResult {
@@ -143,6 +152,14 @@ export function computeValuation(input: ValuationInput): ValuationResult {
   const price = input.closePrice;
   if (price === null || price <= 0) {
     notes.push('NO_PRICE');
+    return empty;
+  }
+
+  // A TZS market capitalisation over a KES book value is not a price/book
+  // ratio, it is a currency error. Without an FX series this cannot be fixed,
+  // so nothing is published.
+  if (input.foreignReportingCurrency) {
+    notes.push('REPORTING_CURRENCY_MISMATCH');
     return empty;
   }
 
