@@ -16,6 +16,10 @@ import {
   upsertMarketSummary,
 } from '@/lib/db/repositories/analytics';
 import { listInstruments } from '@/lib/db/repositories/instruments';
+import {
+  regenerateValuationsForDate,
+  valuationsForDate,
+} from '@/lib/services/valuation-service';
 import type { ScoreComponent } from '@/lib/types/market';
 
 /**
@@ -84,6 +88,12 @@ export async function regenerateAnalyticsForDate(
   if (sessionRows.length === 0) {
     return { tradingDate, instrumentsProcessed: 0, summaryWritten: false };
   }
+
+  // Valuations are regenerated first because the Opportunity score consumes
+  // them. Doing it in this order means one call keeps the whole derived set
+  // for a date consistent.
+  await regenerateValuationsForDate(tradingDate);
+  const valuationBySymbol = await valuationsForDate(tradingDate);
 
   const instrumentIds = sessionRows.map((r) => r.market.instrumentId);
   const history = await bulkHistory(instrumentIds, tradingDate, HISTORY_SESSIONS);
@@ -205,17 +215,19 @@ export async function regenerateAnalyticsForDate(
     confidenceScores.push(confidence.score);
 
     /* -- Opportunity ------------------------------------------------------ */
-    // Fundamentals and valuation inputs are null until Phase 10. The engine
-    // excludes those pillars and reports them in `missing`; it does not
-    // substitute neutral values.
+    // Valuation multiples now come from the valuations table. Fundamental
+    // ratios remain null here: the Opportunity fundamentals pillar is fed by
+    // the fundamental scorecard, and a pillar with no data is excluded and
+    // reported rather than imputed.
+    const valuation = valuationBySymbol.get(instrument.symbol);
     const opportunity = computeOpportunity({
       roePct: null,
       netMarginPct: null,
       debtToEquity: null,
       epsGrowthPct: null,
-      peRatio: null,
-      pbRatio: null,
-      dividendYieldPct: null,
+      peRatio: valuation?.peRatio ?? null,
+      pbRatio: valuation?.pbRatio ?? null,
+      dividendYieldPct: valuation?.dividendYield ?? null,
       return20dPct: returns.return20d,
       return5dPct: returns.return5d,
       liquidityScore: liquidity.liquidityScore,

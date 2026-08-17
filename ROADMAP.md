@@ -122,7 +122,18 @@ Repository, Next.js 16 app, Railway PostgreSQL schema, migrations.
   model and a banking model, selected by the DATA (presence of NPL / capital
   adequacy / cost-income figures), never by sector label or ticker
 - ✅ `fundamental_scores` table, versioned by methodology
-- ⬜ Valuation derivation (P/E, P/B, dividend yield, earnings yield, EV metrics)
+- ✅ `analytics/valuation.ts` + `valuations` table — P/E, P/B, earnings yield,
+  price/sales, enterprise value. Interim earnings are annualised by the issuer
+  reporting cadence and LABELLED as annualised. Negative earnings or book value
+  produce no multiple rather than a flattering one.
+- ✅ EPS and book value per share derived from reported totals and the share
+  count where the issuer published no per-share figure
+- ✅ Plausibility bounds: a multiple far outside any credible range is withheld
+  as a suspected unit mismatch rather than published. Nothing is silently
+  rescaled.
+- ⬜ Dividend yield — **no dividend-per-share data exists in any source yet**, so
+  the pillar stays excluded. A company that pays no dividend and one whose
+  dividend has not been loaded are different facts.
 - ⬜ Corporate actions timeline
 
 ## Ranking engine ✅

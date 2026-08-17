@@ -5,7 +5,10 @@ import { db } from '@/lib/db/client';
 import { fundamentals, type NewInstrument } from '@/lib/db/schema';
 import { toNumeric, toQty } from '@/lib/db/num';
 import { parseNumber, parseTradingDate, sanitizeText } from './parse';
-import { symbolIdMap } from '@/lib/db/repositories/instruments';
+import {
+  sharesOutstandingMap,
+  symbolIdMap,
+} from '@/lib/db/repositories/instruments';
 import { regenerateFundamentalScores } from '@/lib/services/fundamental-service';
 import type { ValidationIssue } from '@/lib/types/market';
 
@@ -129,7 +132,10 @@ export async function importFundamentalsCsv(
     ]);
   }
 
-  const symbolIds = await symbolIdMap();
+  const [symbolIds, sharesBySymbol] = await Promise.all([
+    symbolIdMap(),
+    sharesOutstandingMap(),
+  ]);
   const cell = (row: Record<string, unknown>, field: FieldName) => {
     const col = column[field];
     return col === null ? null : row[col];
@@ -245,6 +251,20 @@ export async function importFundamentalsCsv(
         : null;
     const derivedPayout =
       dps !== null && eps !== null && eps > 0 ? (dps / eps) * 100 : null;
+
+    // Per-share figures. Dividing a reported total by the share count is a
+    // definition, not an estimate, so it is derived when the issuer did not
+    // publish a per-share number. The share count comes from the file first,
+    // then the instrument master.
+    const shares = num('sharesOutstanding') ?? sharesBySymbol.get(symbol) ?? null;
+    const derivedEps =
+      netIncome !== null && shares !== null && shares > 0
+        ? netIncome / shares
+        : null;
+    const derivedBvps =
+      totalEquity !== null && shares !== null && shares > 0
+        ? totalEquity / shares
+        : null;
     const freeCashFlow =
       ocf !== null && capex !== null ? ocf - capex : null;
 
@@ -268,10 +288,12 @@ export async function importFundamentalsCsv(
       operatingCashFlow: toNumeric(ocf, 4),
       capitalExpenditure: toNumeric(capex, 4),
       freeCashFlow: toNumeric(freeCashFlow, 4),
-      eps: toNumeric(eps, 4),
+      eps: toNumeric(eps ?? derivedEps, 4),
+      // No fallback: a dividend that was not reported is unknown, and must not
+      // become a zero that would render as a 0.00% yield.
       dps: toNumeric(dps, 4),
-      bookValuePerShare: toNumeric(num('bookValuePerShare'), 4),
-      sharesOutstanding: toQty(num('sharesOutstanding')),
+      bookValuePerShare: toNumeric(num('bookValuePerShare') ?? derivedBvps, 4),
+      sharesOutstanding: toQty(shares),
       roe: toNumeric(num('roe') ?? derivedRoe, 6),
       roa: toNumeric(num('roa') ?? derivedRoa, 6),
       grossMargin: toNumeric(num('grossMargin') ?? derivedGrossMargin, 6),

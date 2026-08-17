@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/auth';
 import { commitImport, previewImport } from '@/lib/ingestion/importer';
 import { importFundamentalsCsv } from '@/lib/ingestion/fundamentals-import';
 import { generateRankingSnapshot, latestRankingDate } from '@/lib/services/ranking-service';
+import { regenerateValuationsForDate } from '@/lib/services/valuation-service';
 import { latestTradingDate } from '@/lib/db/repositories/market';
 import { PARSE_LIMITS } from '@/lib/ingestion/parse';
 import { findRunByChecksum, getSourceByName } from '@/lib/db/repositories/ingestion';
@@ -67,6 +68,9 @@ export async function POST(request: Request) {
       if (result.scoresWritten > 0) {
         const date = (await latestRankingDate()) ?? (await latestTradingDate());
         if (date) {
+          // Multiples depend on the results just imported, and the ranking
+          // depends on the multiples, so both are rebuilt in that order.
+          await regenerateValuationsForDate(date);
           await generateRankingSnapshot(date);
           rankingRegenerated = date;
         }

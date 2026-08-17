@@ -16,8 +16,3 @@ coverage/
 *.tsbuildinfo
 next-env.d.ts
 .drizzle-tmp/
-
-# Source workbooks. This repository is PUBLIC: the Kadioko DSE Sheet holds
-# proprietary company financial data, so it is excluded by default. Remove this
-# rule deliberately if you decide to publish it.
-docs/*.xlsx

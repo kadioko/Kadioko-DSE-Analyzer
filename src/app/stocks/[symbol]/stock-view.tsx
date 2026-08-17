@@ -149,18 +149,18 @@ export function StockView({
       ) : null}
 
       {tab === 'Valuation' ? (
-        <NotYetAvailable
-          title="Valuation multiples unavailable"
-          what="P/E, P/B, earnings yield and EV multiples"
-          consequence="These require published earnings and book value. The valuation pillar (20% of the Opportunity score) is excluded until fundamentals are on file."
-        />
+        <Notice tone="neutral" title="Valuation is shown above">
+          P/E, P/B, earnings yield and enterprise-value multiples are in the
+          Valuation panel above this tab strip, together with a note on exactly
+          how each figure was derived and why any absent one is absent.
+        </Notice>
       ) : null}
 
       {tab === 'Dividends' ? (
         <NotYetAvailable
-          title="Dividend history unavailable"
-          what="Declared dividends, ex-dates and payment dates"
-          consequence="Dividend yield cannot be computed, so that pillar (10% of the Opportunity score) is excluded."
+          title="Dividend data unavailable"
+          what="Declared dividends per share, ex-dates and payment dates"
+          consequence="Dividend yield therefore cannot be computed, and that pillar (10% of the Opportunity score) is excluded rather than treated as a zero yield. A company that pays no dividend and a company whose dividend we have not loaded are different facts, and the platform does not conflate them."
         />
       ) : null}
 
