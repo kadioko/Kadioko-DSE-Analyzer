@@ -15,7 +15,7 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
     "db:studio": "drizzle-kit studio",
-    "ingest": "tsx workers/market-ingestion/index.ts",
+    "ingest": "tsx --tsconfig workers/tsconfig.json workers/market-ingestion/index.ts",
     "verify": "npm run typecheck && npm run lint && npm run test"
   },
   "dependencies": {

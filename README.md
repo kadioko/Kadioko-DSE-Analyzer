@@ -174,7 +174,7 @@ Turnover, Deals, Outstanding Bid, Outstanding Offer, Volume, Market Cap
 | `npm run db:generate` | Generate a migration from schema changes |
 | `npm run db:migrate` | Apply pending migrations |
 | `npm run db:seed` | Seed instruments, sources and scoring models |
-| `npm run ingest` | Run the ingestion worker once |
+| `npm run ingest` | Run the ingestion worker (`-- --date=` / `--from= --to=`) |
 
 ---
 
@@ -197,6 +197,18 @@ This platform is built to consume **authorised** market data. The provider
 interface (`MarketDataProvider`) exists so that the CSV importer used during
 development can be replaced by a licensed DSE feed without touching the
 analytics engine, the database or the UI.
+
+Provider status today:
+
+| Provider | State |
+| --- | --- |
+| `csv` | **Implemented.** Watches `INGEST_DIR`; drives the worker and the cron endpoint. |
+| `dse_official` | Declared only. Reports unhealthy and refuses to fetch until a licence and endpoint specification exist. |
+| `third_party` | Declared only. Awaiting vendor selection. |
+
+The unimplemented providers are not stubbed with plausible-looking data. A feed
+that appears to work while returning fiction is the worst failure this project
+could have, so they state their true condition instead.
 
 A development-only parser may be enabled with `ENABLE_DEV_PARSERS=true`, and is
 hard-disabled when `NODE_ENV=production`. It exists for local testing only and

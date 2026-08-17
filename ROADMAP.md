@@ -165,13 +165,20 @@ Repository, Next.js 16 app, Railway PostgreSQL schema, migrations.
 - ⬜ `/watchlist`
 - ⬜ Alert definitions (schema already in place)
 
-## Phase 12 — Automated data providers ⬜
+## Phase 12 — Automated data providers ✅
 
-- ⬜ `MarketDataProvider` implementations: `CsvProvider` (real),
-  `DseOfficialProvider` and `ThirdPartyProvider` (declared, not faked — they
-  report `healthy: false` until credentials and a specification exist)
-- ⬜ Railway scheduled worker: fetch → validate → store → analytics → summary
-- ⬜ Retry with backoff, run recording, duplicate prevention
+- ✅ `CsvProvider` — watches `INGEST_DIR`, matches a file to a session by ISO or
+  compact date, most recent modification wins
+- ✅ `DseOfficialProvider` / `ThirdPartyProvider` — declared, NOT faked. They
+  throw on fetch and report `healthy: false` with the reason.
+- ✅ `workers/market-ingestion` — `npm run ingest`, with `--date`, `--from/--to`
+  backfill, `--provider` and retry flags. Exits non-zero on failure.
+- ✅ `POST /api/cron/ingest` authorised by `CRON_SECRET`, separate from
+  `ADMIN_TOKEN` so a compromised scheduler cannot reach admin surfaces
+- ✅ Retry with linear backoff for transient failures only; a validation failure
+  is returned immediately rather than retried
+- ✅ East Africa Time session dates, weekend skip reported as `SKIPPED`
+- ✅ Same data-quality rules as manual upload; full run and error recording
 
 ## Phase 13 — AI explanation layer ⬜
 

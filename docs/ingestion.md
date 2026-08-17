@@ -17,9 +17,57 @@ interface MarketDataProvider {
 
 | Provider | Status | Notes |
 | --- | --- | --- |
-| `CsvProvider` | implemented | manual upload and file drop |
-| `DseOfficialProvider` | declared, not implemented | awaits a data licence and specification |
-| `ThirdPartyProvider` | declared, not implemented | awaits vendor selection |
+| `CsvProvider` | **implemented** | Watches `INGEST_DIR` for end-of-day files. Used by the worker and the cron endpoint. |
+| `DseOfficialProvider` | declared, not implemented | `fetchDaily` throws; `healthCheck` reports unhealthy with the reason. Awaits a data licence and endpoint specification. |
+| `ThirdPartyProvider` | declared, not implemented | Same. Awaits vendor selection. |
+
+## Scheduled ingestion
+
+Two entry points, both running the identical pipeline:
+
+```bash
+npm run ingest -- --date=2026-08-14
+```
+
+```bash
+curl -X POST "https://<host>/api/cron/ingest?date=2026-08-14"   -H "Authorization: Bearer $CRON_SECRET"
+```
+
+The flow:
+
+```
+provider.fetchDaily -> validate -> store -> analytics -> valuations -> ranking
+```
+
+A scheduled file is held to exactly the same data-quality rules as a manual
+upload; arriving on a schedule earns it no leniency.
+
+Behaviour worth knowing:
+
+- **Weekends are skipped and say so.** The result carries `status: "SKIPPED"`
+  with a reason, rather than failing or silently doing nothing.
+- **East Africa Time.** The default date is today in EAT (UTC+3), not the
+  server's local date. A UTC host running an evening job would otherwise ingest
+  the wrong session.
+- **Retries are for transient failures only.** A missing file or unreachable
+  provider is retried with linear backoff. A validation failure is not:
+  retrying a malformed file just produces the same rejections again.
+- **The HTTP endpoint returns 200 with `status: "FAILED"`** when the run fails.
+  The request was handled; the ingestion was not. Alert on the status field,
+  not the HTTP code.
+- **Idempotent.** Re-running a date updates the same rows and records a fresh
+  ingestion run.
+
+Worker options:
+
+| Flag | Meaning |
+| --- | --- |
+| `--date=YYYY-MM-DD` | one session |
+| `--from=` / `--to=` | an inclusive range, useful for backfill |
+| `--provider=` | override `DATA_PROVIDER` |
+| `--attempts=` / `--delayMs=` | retry behaviour |
+
+The worker exits non-zero when any date fails, so a scheduler surfaces it.
 
 Unimplemented providers report `healthy: false` with an explanatory message.
 They are **not** stubbed with fabricated responses — a provider that appears to

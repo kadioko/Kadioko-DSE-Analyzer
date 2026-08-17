@@ -111,8 +111,18 @@ The database stays on Railway either way.
 npm run ingest
 ```
 
-3. Add `DATABASE_URL` (internal reference), `DATA_PROVIDER`, and any feed
-   credentials
+3. Add `DATABASE_URL` (internal reference), `DATA_PROVIDER=csv`, and
+   `INGEST_DIR` pointing at a mounted volume
+
+The CSV provider reads end-of-day files from `INGEST_DIR`. On Railway, attach a
+**Volume** to the worker and set `INGEST_DIR` to its mount path, otherwise files
+dropped into an ephemeral container filesystem disappear on redeploy.
+
+The worker ingests today's session in East Africa Time by default. To backfill:
+
+```bash
+railway run npm run ingest -- --from=2026-06-01 --to=2026-08-14
+```
 
 ## 9. Configure the scheduled job
 
