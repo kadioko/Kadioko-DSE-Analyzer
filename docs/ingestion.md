@@ -232,3 +232,55 @@ After a successful import, for every affected trading date:
 Both are keyed by `model_version`, so a formula change produces new rows rather
 than overwriting the old ones. Raw observations are never touched by
 recalculation.
+
+---
+
+## Data licensing: what the DSE actually permits
+
+Checked directly against the exchange's published
+[Market Data Policy](https://dse.co.tz/storage/extras/Data%20Vending%20Policy%20EN%201.2-1.pdf)
+(June 2024, 48 pages).
+
+**Section 16 — Historical Data Policy**
+
+| Clause | What it says |
+| --- | --- |
+| 16.2 | Historical Data is **all market data older than 24 hours** |
+| 16.3.3(i) | A person, **whether a Contracted User or not**, must pay a once-off historical data fee based on type, range and intended use |
+| 16.3.3(ii) | The requester must first complete the **DSE Historical Data Order form** / Market Data Evaluation Form and email it to `data@dse.co.tz` |
+| 16.3.3(iii) | The user **may not redistribute** market data without express prior written permission; Redistribution Licence Fees apply separately |
+
+The practical consequence for this project:
+
+- **Bulk-harvesting historical prices from the DSE website is against the
+  exchange's stated terms**, even though `robots.txt` permits crawling. The
+  absence of a technical block is not a licence.
+- Redistribution — including exposing the data through this platform's public
+  API or the Kadioko DSE Sheet to anyone outside your organisation — needs a
+  **separate** licence beyond the historical data fee.
+- Section 20 governs **Derived Data**. The scores this platform computes
+  (pressure, liquidity, opportunity, ranking) are derived data, and their
+  distribution is covered by that section.
+
+**The supported route**
+
+1. Email `data@dse.co.tz` requesting the Market Data Evaluation Form
+2. State the date range and whether the use is *internal* or *external
+   distribution* — the fees differ
+3. Pay the one-off historical data fee
+4. Import the delivered file through `/admin/data`
+
+Registration portal: <https://data.dse.co.tz/console/register>
+Price list: [DSE Market Data Product Price List 2026](https://dse.co.tz/storage/data_services/DSE%20MARKET%20DATA%20PRODUCT%20PRICELIST%20-%202026.pdf)
+(published as scanned images; fees are not machine-readable)
+
+**Why no scraper ships in this repository**
+
+Non-negotiable rule 7 of this project says unauthorised scraping must never
+become the production architecture. The exchange's own policy makes bulk
+historical collection a paid, form-gated process. Building a harvester would
+put the platform in breach of the terms of the data it depends on, so
+`DseOfficialProvider` remains declared-and-unimplemented until a licence exists.
+Nothing about the platform changes when one does: the provider interface, the
+ingestion pipeline and the analytics engine are already in place, and only that
+one file needs writing.

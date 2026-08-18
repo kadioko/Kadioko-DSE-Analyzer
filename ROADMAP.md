@@ -231,6 +231,8 @@ Repository, Next.js 16 app, Railway PostgreSQL schema, migrations.
 | Item | Reason |
 | --- | --- |
 | Licensed real-time / delayed DSE feed | Requires a data licence. The adapter interface is built; the implementation waits on a specification and credentials. Nothing will be stubbed to look functional. |
+| Historical price backfill | **Blocked on licensing, not code.** The DSE Market Data Policy s.16 makes all data older than 24 hours a paid, order-form-gated product, and forbids redistribution without a further licence. The backfill path (`npm run ingest -- --from= --to=`) is built and tested; it needs a licensed file. See docs/ingestion.md. |
+| Automated web harvesting of DSE prices | **Will not be built.** Contrary to the exchange's stated terms and to rule 7 of this project. |
 | Intraday data | The database is EOD-shaped. Intraday needs a separate tick table and is out of scope until a feed exists. |
 | Portfolio tracking | Adjacent product. Watchlists first. |
 

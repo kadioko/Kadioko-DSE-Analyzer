@@ -97,6 +97,19 @@ directories lift into packages unchanged.
 
 ## Getting started
 
+**New here?** Run one command:
+
+```bash
+npm run setup
+```
+
+It checks your machine, writes a `.env` with freshly generated secrets, creates
+the database tables and loads the securities list, then tells you exactly what
+to do next. Step-by-step walkthrough with no assumed knowledge:
+**[QUICKSTART.md](QUICKSTART.md)**.
+
+The manual route follows.
+
 ### 1. Install
 
 ```bash
@@ -165,6 +178,7 @@ Turnover, Deals, Outstanding Bid, Outstanding Offer, Volume, Market Cap
 
 | Command | Purpose |
 | --- | --- |
+| `npm run setup` | **One-command setup for a new machine** |
 | `npm run dev` | Development server |
 | `npm run build` | Production build |
 | `npm run typecheck` | TypeScript, no emit |
@@ -187,11 +201,20 @@ Turnover, Deals, Outstanding Bid, Outstanding Offer, Volume, Market Cap
 | [docs/data-dictionary.md](docs/data-dictionary.md) | Every table and column |
 | [docs/ingestion.md](docs/ingestion.md) | Import workflow, validation rules, provider contract |
 | [docs/railway.md](docs/railway.md) | Railway setup, deployment, scheduled jobs, backups |
+| [QUICKSTART.md](QUICKSTART.md) | Plain-language setup, no prior knowledge assumed |
 | [ROADMAP.md](ROADMAP.md) | Build phases and current status |
 
 ---
 
 ## Data sourcing and licensing
+
+**The DSE charges for historical market data.** Its published Market Data
+Policy (section 16) defines anything older than 24 hours as Historical Data and
+requires a one-off fee plus a completed order form sent to `data@dse.co.tz`.
+Redistribution needs a further licence. Bulk-harvesting it from the website is
+against those terms even though `robots.txt` permits crawling — the absence of a
+technical block is not a licence. Full detail and the supported route:
+[docs/ingestion.md](docs/ingestion.md#data-licensing-what-the-dse-actually-permits).
 
 This platform is built to consume **authorised** market data. The provider
 interface (`MarketDataProvider`) exists so that the CSV importer used during
