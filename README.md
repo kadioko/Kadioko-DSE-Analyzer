@@ -189,6 +189,7 @@ Turnover, Deals, Outstanding Bid, Outstanding Offer, Volume, Market Cap
 | Command | Purpose |
 | --- | --- |
 | `npm run setup` | **One-command setup for a new machine** |
+| `npm run railway:setup` | Configure a linked Railway project and migrate its database |
 | `npm run dev` | Development server |
 | `npm run build` | Production build |
 | `npm run typecheck` | TypeScript, no emit |

@@ -57,6 +57,34 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 Use Railway's `${{Postgres.DATABASE_URL}}` reference syntax rather than pasting
 the connection string, so credential rotation propagates automatically.
 
+## 4b. Or do steps 4-6 automatically
+
+Once you have added the PostgreSQL service:
+
+```bash
+npx -y @railway/cli login
+```
+
+```bash
+npx -y @railway/cli link
+```
+
+```bash
+npm run railway:setup
+```
+
+That sets the web service variables (generating `ADMIN_TOKEN` and `CRON_SECRET`
+if they do not already exist), then applies migrations and the seed over the
+database's public URL.
+
+It is idempotent. Existing secrets are **preserved**, not regenerated — a fresh
+token would sign you out and break any scheduler already configured with the old
+one. Secrets are never printed; reveal them in the Railway dashboard.
+
+It needs `DATABASE_PUBLIC_URL` on the Postgres service. The internal URL resolves
+only inside Railway, so migrations cannot run from your machine without the
+public proxy enabled.
+
 ## 5. Run migrations
 
 Locally, against the public URL:
