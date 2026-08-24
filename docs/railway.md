@@ -152,8 +152,38 @@ curl -X POST https://<your-domain>/api/ingest/scheduled \
 railway run node -e "const p=require('postgres');const s=p(process.env.DATABASE_URL,{ssl:'require'});s\`select count(*) from instruments\`.then(r=>{console.log(r);return s.end()})"
 ```
 
-Or open `/api/health`, which reports database connectivity and latency without
-exposing the connection string.
+Or open `/api/health`:
+
+```json
+{ "status": "ok",
+  "database": { "configured": true, "reachable": true, "latencyMs": 7 },
+  "data": { "latestTradingDate": "2026-08-14" },
+  "features": { "adminRoutes": true, "scheduledIngestion": true } }
+```
+
+`status` is one of `ok`, `degraded` or `not_configured`. It is unauthenticated,
+so it never returns the connection string, the host, or driver error text — a
+database failure reports *that* it failed, not why. The detail is logged
+server-side and shown to a signed-in administrator on `/admin/data`.
+
+It always returns HTTP 200, including when degraded. A platform health check
+that flaps to 503 on a transient database blip would restart a container that is
+otherwise serving fine, so **alert on the `status` field, not the HTTP code**.
+
+`features` tells you at a glance whether `ADMIN_EMAIL`/`ADMIN_TOKEN` and
+`CRON_SECRET` are actually set, without revealing their values. If
+`adminRoutes` is `false` you will not be able to sign in to import data.
+
+### Config as code
+
+`railway.json` at the repo root sets the web service's build command, start
+command and healthcheck automatically, so the Web service needs no manual
+build configuration.
+
+For the **worker** service, Railway reads `railway.json` by default too, which
+is the wrong config for it. Point it at the worker file instead:
+**Settings → Config-as-code → path** = `railway.worker.json`. Without that
+step the worker will try to run the web server.
 
 ## 11. Backups and retention
 
