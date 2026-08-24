@@ -27,7 +27,22 @@ Keep that on your clipboard for the next step.
 
 ## Step 2 — Run setup
 
-Open a terminal in this folder and run:
+**Just double-click the launcher for your computer:**
+
+| Your computer | Double-click |
+| --- | --- |
+| Windows | `START-HERE.bat` |
+| macOS | `start-here.command` |
+| Linux | `start-here.command`, then choose *Run in Terminal* |
+
+A window opens and does the work. If Node.js is missing it opens the download
+page for you.
+
+> **macOS first time:** if it says the file is from an unidentified developer,
+> right-click it and choose **Open**, then **Open** again. That only happens
+> once.
+
+If you prefer a terminal, the equivalent is:
 
 ```bash
 npm run setup

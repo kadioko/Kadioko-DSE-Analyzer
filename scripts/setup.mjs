@@ -15,12 +15,17 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { createInterface } from 'node:readline/promises';
 
-const GREEN = '\x1b[32m';
-const RED = '\x1b[31m';
-const YELLOW = '\x1b[33m';
-const DIM = '\x1b[2m';
-const BOLD = '\x1b[1m';
-const RESET = '\x1b[0m';
+const COLOUR =
+  Boolean(process.stdout.isTTY) && process.env.NO_COLOR === undefined;
+/** Colour only on a real terminal: piped output would show literal escapes. */
+const c = (code) => (COLOUR ? code : '');
+
+const GREEN = c('\x1b[32m');
+const RED = c('\x1b[31m');
+const YELLOW = c('\x1b[33m');
+const DIM = c('\x1b[2m');
+const BOLD = c('\x1b[1m');
+const RESET = c('\x1b[0m');
 
 const ok = (m) => console.log(`${GREEN}  OK${RESET}  ${m}`);
 const warn = (m) => console.log(`${YELLOW}  !!${RESET}  ${m}`);

@@ -97,16 +97,26 @@ directories lift into packages unchanged.
 
 ## Getting started
 
-**New here?** Run one command:
+**Never used this before? Do not open a terminal.**
+
+| Your computer | Double-click this file |
+| --- | --- |
+| Windows | **`START-HERE.bat`** |
+| macOS | **`start-here.command`** |
+| Linux | **`start-here.command`** (choose *Run in Terminal*) |
+
+It checks whether Node.js is installed and sends you to the download page if
+not, then prepares everything and tells you what to do next. Plain-language
+walkthrough: **[QUICKSTART.md](QUICKSTART.md)**.
+
+If you are comfortable with a terminal, the same thing is:
 
 ```bash
 npm run setup
 ```
 
-It checks your machine, writes a `.env` with freshly generated secrets, creates
-the database tables and loads the securities list, then tells you exactly what
-to do next. Step-by-step walkthrough with no assumed knowledge:
-**[QUICKSTART.md](QUICKSTART.md)**.
+It writes a `.env` with freshly generated secrets, creates the database tables
+and loads the securities list. It never overwrites an existing `.env`.
 
 The manual route follows.
 
