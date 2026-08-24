@@ -219,9 +219,10 @@ Repository, Next.js 16 app, Railway PostgreSQL schema, migrations.
 ## Phase 15 — Production polish ⬜
 
 - ⬜ English / Kiswahili internationalisation
-- ⬜ `/methodology` published from the live scoring config
-- ⬜ `GET /api/export/daily?date=YYYY-MM-DD` and historical CSV export for the
-  Kadioko DSE Sheet
+- ✅ `/methodology` published from the live scoring config (renders from
+  `src/lib/analytics/config.ts`, so it cannot drift from the engine)
+- ✅ `GET /api/export/daily` with date, range, symbol filters and CSV export;
+  `GET /api/export/rankings` likewise
 - ⬜ Backups, retention, monitoring
 
 ---

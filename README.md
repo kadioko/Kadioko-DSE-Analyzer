@@ -7,6 +7,9 @@ transparent quantitative metrics from them, and presents market, security and
 report views on top. It is a financial-data platform, not a web rendering of a
 spreadsheet.
 
+**Live:** <https://kadioko-dse-analyzer-production.up.railway.app> · current
+state and outstanding work in [docs/status.md](docs/status.md).
+
 > **Status:** under active construction. See [ROADMAP.md](ROADMAP.md) for what is
 > built, what is in progress and what is planned. Nothing in this repository
 > should be treated as production-ready until the roadmap says so and the test
@@ -213,6 +216,7 @@ Turnover, Deals, Outstanding Bid, Outstanding Offer, Volume, Market Cap
 | [docs/ingestion.md](docs/ingestion.md) | Import workflow, validation rules, provider contract |
 | [docs/railway.md](docs/railway.md) | Railway setup, deployment, scheduled jobs, backups |
 | [QUICKSTART.md](QUICKSTART.md) | Plain-language setup, no prior knowledge assumed |
+| [docs/status.md](docs/status.md) | **What is deployed, what it serves, and what is left** |
 | [ROADMAP.md](ROADMAP.md) | Build phases and current status |
 
 ---
