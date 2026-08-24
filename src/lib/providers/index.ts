@@ -41,4 +41,5 @@ export function allProviders(): MarketDataProvider[] {
 }
 
 export { CsvProvider, DseOfficialProvider, ThirdPartyProvider };
+export { NoDataAvailableError, isNoDataAvailable } from './errors';
 export type { MarketDataProvider };

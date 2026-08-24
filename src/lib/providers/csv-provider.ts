@@ -3,6 +3,7 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { getEnv } from '@/lib/env';
 import { parseMarketCsv, PARSE_LIMITS } from '@/lib/ingestion/parse';
+import { NoDataAvailableError } from './errors';
 import type {
   MarketDataProvider,
   NormalizedMarketRecord,
@@ -57,8 +58,13 @@ export class CsvProvider implements MarketDataProvider {
     );
 
     if (candidates.length === 0) {
-      throw new Error(
-        `No CSV for ${iso} in ${this.directory}. Expected a filename containing "${iso}" or "${compact}".`,
+      // Not a fault: the file for this session simply has not arrived yet.
+      // A scheduled run reports this as SKIPPED rather than FAILED, so a daily
+      // job stays quiet until there is something to ingest.
+      throw new NoDataAvailableError(
+        this.id,
+        iso,
+        `No file for ${iso} in ${this.directory}. Expected a filename containing "${iso}" or "${compact}".`,
       );
     }
 

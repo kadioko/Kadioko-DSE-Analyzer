@@ -1,5 +1,5 @@
 import 'server-only';
-import { getProvider } from '@/lib/providers';
+import { getProvider, isNoDataAvailable } from '@/lib/providers';
 import { getSourceByName } from '@/lib/db/repositories/ingestion';
 import { recordHealthCheck } from '@/lib/db/repositories/ingestion';
 import { symbolIdMap, sharesOutstandingMap } from '@/lib/db/repositories/instruments';
@@ -251,6 +251,31 @@ export async function runScheduledIngestion(
       message: null,
     };
   } catch (error) {
+    // "No file has been published for this date yet" is the expected state on
+    // any day before the exchange file has been obtained. Reporting it as a
+    // failure would make a daily job raise an alarm every single morning, and
+    // an alarm that fires daily is one nobody reads. It is recorded as SKIPPED:
+    // visible in the run log, but not a fault.
+    if (isNoDataAvailable(error)) {
+      await completeRun({
+        runId: run.id,
+        status: 'SKIPPED',
+        recordsReceived: 0,
+        inserted: 0,
+        updated: 0,
+        unchanged: 0,
+        rejected: 0,
+        warnings: 0,
+        errorSummary: null,
+      });
+      return {
+        ...base,
+        runId: run.id,
+        status: 'SKIPPED',
+        message: `No data published for ${iso} yet. ${error.message}`,
+      };
+    }
+
     const message =
       error instanceof Error ? error.message : 'Unknown ingestion failure.';
     await failRun(run.id, message);
@@ -262,8 +287,9 @@ export async function runScheduledIngestion(
  * Retries transient failures with linear backoff.
  *
  * A validation failure is NOT transient and is returned immediately: retrying a
- * malformed file just produces the same rejections three times. Only an absent
- * file or an unreachable provider is worth waiting for.
+ * malformed file just produces the same rejections three times. Nor is an
+ * absent file — that returns SKIPPED, and waiting will not make it appear.
+ * Only an unreachable or misconfigured provider is worth a second attempt.
  */
 export async function runScheduledIngestionWithRetry(
   options: ScheduledRunOptions & { attempts?: number; delayMs?: number } = {},
@@ -280,7 +306,7 @@ export async function runScheduledIngestionWithRetry(
 
     const transient =
       last.message !== null &&
-      /No CSV for|not readable|does not exist|returned no records|ECONN|timeout/i.test(
+      /not readable|does not exist|returned no records|ECONN|ETIMEDOUT|timeout|socket hang up/i.test(
         last.message,
       );
 

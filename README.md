@@ -187,6 +187,59 @@ Turnover, Deals, Outstanding Bid, Outstanding Offer, Volume, Market Cap
 
 ---
 
+## Keeping the data up to date
+
+Everything after ingestion already runs itself: analytics, valuations and the
+rankings all rebuild when new data lands. The only step that needed a person was
+carrying the file from a computer to the deployed platform, and that is what
+`sync` does.
+
+### Once
+
+Put the live URL in `.env.local`, alongside the `ADMIN_EMAIL` and `ADMIN_TOKEN`
+from Railway → your service → Variables:
+
+```
+KADIOKO_URL=https://your-app.up.railway.app
+```
+
+### Every day
+
+Save the DSE file into `data/incoming/` with the session date in its name
+(`dse-eod-2026-08-14.csv`), then either double-click **UPDATE-DATA.bat**
+(**update-data.command** on macOS) or run:
+
+```bash
+npm run sync
+```
+
+Files the platform already holds are skipped, so running it twice costs nothing.
+Use `npm run sync -- --all` to re-send a corrected file, and
+`npm run sync -- --dry-run` to see what would be sent without sending it.
+
+### Or let it run itself
+
+```bash
+npm run schedule
+```
+
+Registers a weekdays-at-18:00 job using Task Scheduler on Windows, `cron`
+elsewhere — after the 16:00 close, when end-of-day files are published. Check it
+with `npm run schedule -- --status`, remove it with `npm run schedule -- --remove`.
+
+**A day with no new file is not a failure.** The pipeline reports it as
+`SKIPPED` and stays quiet, because a job that raises an alarm every morning is
+a job whose alarms nobody reads. Genuine faults — an unreadable file, an
+unreachable database, a rejected row — are still reported in full.
+
+**What is not automated, and why.** Nothing fetches from the DSE on its own. The
+exchange's Market Data Policy makes anything older than 24 hours a licensed
+product, so obtaining the file stays a deliberate human act. When a licensed
+feed is in place, setting `DATA_PROVIDER=dse_official` moves that last step
+inside the schedule with no other change.
+
+---
+
 ## Scripts
 
 | Command | Purpose |
@@ -203,6 +256,8 @@ Turnover, Deals, Outstanding Bid, Outstanding Offer, Volume, Market Cap
 | `npm run db:migrate` | Apply pending migrations |
 | `npm run db:seed` | Seed instruments, sources and scoring models |
 | `npm run ingest` | Run the ingestion worker (`-- --date=` / `--from= --to=`) |
+| `npm run sync` | **Push local files in `data/incoming/` to the live platform** |
+| `npm run schedule` | Install/inspect/remove the daily automatic sync (`-- --status`, `-- --remove`) |
 
 ---
 

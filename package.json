@@ -16,6 +16,8 @@
     "db:seed": "tsx scripts/seed.ts",
     "db:studio": "drizzle-kit studio",
     "ingest": "tsx --tsconfig workers/tsconfig.json workers/market-ingestion/index.ts",
+    "sync": "node scripts/sync.mjs",
+    "schedule": "node scripts/schedule.mjs",
     "verify": "npm run typecheck && npm run lint && npm run test",
     "setup": "node scripts/setup.mjs",
     "railway:setup": "node scripts/railway-setup.mjs"

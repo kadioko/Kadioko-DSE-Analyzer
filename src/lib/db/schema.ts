@@ -87,6 +87,10 @@ export const ingestionStatusEnum = pgEnum('ingestion_status', [
   'PARTIAL',
   'FAILED',
   'CANCELLED',
+  // Ran correctly and correctly did nothing: a weekend, or a session whose
+  // file has not been published yet. Distinct from FAILED so a scheduled job
+  // does not report a fault every day it has nothing to do.
+  'SKIPPED',
 ]);
 
 export const errorSeverityEnum = pgEnum('error_severity', ['WARNING', 'ERROR']);

@@ -100,7 +100,7 @@ export async function startRun(input: StartRunInput): Promise<IngestionRun> {
 
 export interface CompleteRunInput {
   runId: string;
-  status: 'SUCCESS' | 'PARTIAL' | 'FAILED' | 'CANCELLED' | 'PREVIEW';
+  status: 'SUCCESS' | 'PARTIAL' | 'FAILED' | 'CANCELLED' | 'PREVIEW' | 'SKIPPED';
   recordsReceived: number;
   inserted: number;
   updated: number;

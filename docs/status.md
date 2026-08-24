@@ -32,7 +32,7 @@ For phase-by-phase detail see [ROADMAP.md](../ROADMAP.md).
 
 | | |
 | --- | --- |
-| Migrations | 4 applied |
+| Migrations | 5 applied |
 | Instruments | 30 |
 | Ingestion sources | 3 (one usable, two declared-only) |
 | Scoring models | 4 |
@@ -86,12 +86,50 @@ chain in dependency order: fundamentals → valuations → analytics → ranking
 
 ---
 
+## Keeping data current
+
+Everything downstream of ingestion already runs itself. The step that needed a
+person was moving a file from a computer to the deployed platform, and that is
+now `npm run sync`.
+
+| | |
+| --- | --- |
+| Daily, by hand | Save the file into `data/incoming/`, double-click **UPDATE-DATA.bat**, or run `npm run sync` |
+| Daily, unattended | `npm run schedule` — weekdays at 18:00 EAT via Task Scheduler or `cron` |
+| Check the schedule | `npm run schedule -- --status` |
+| Re-send a corrected file | `npm run sync -- --all` |
+
+Verified end to end against production: a re-sent 14 Aug file reported
+`0 new, 29 unchanged, 1 rejected` — idempotent, and the known bad SWIS row still
+correctly refused.
+
+### A quiet day is not a failure
+
+A session with no published file is recorded as `SKIPPED`, not `FAILED`. This
+needed a new value in the `ingestion_status` enum (migration `0004`) and a
+`NoDataAvailableError` the providers raise. The reason it matters: a scheduled
+job that reports a fault every morning is a job whose alerts stop being read.
+Real faults — an unreadable file, a missing directory, an unreachable database,
+a rejected row — are still reported in full, and only those are retried.
+
+### What is deliberately not automated
+
+Nothing fetches from the DSE by itself. The Market Data Policy makes anything
+older than 24 hours a licensed product, so obtaining the file remains a
+deliberate human act. When a licence is in place, `DATA_PROVIDER=dse_official`
+moves that last step inside the schedule with no other change — the provider
+interface, the scheduler, the retry rules and the skip semantics are already
+built and tested against it.
+
+---
+
 ## What is left
 
 ### Blocked on something other than code
 
 | Item | Blocker |
 | --- | --- |
+| **Data newer than 14 Aug 2026** | No source held goes beyond it. The workbook contains 5 sessions and nothing more recent exists to load. The sync path is built and verified; it needs a file. |
 | **Historical market data** | DSE Market Data Policy s.16 makes anything older than 24 hours a paid, order-form-gated product, and forbids redistribution without a further licence. Email `data@dse.co.tz` for the Market Data Evaluation Form. The backfill command is built and tested; it needs a licensed file. |
 | **Dividend yield** | No dividend-per-share data exists in any source held. The pipeline is verified end to end; it needs data. |
 | **Cross-listed valuations** | EABL, KCB, KA, NMG, JHL, USL report in KES and trade in TZS. Any per-share multiple mixing the two is wrong by the exchange rate. Needs a TZS/KES series, which is a decision rather than a code gap. |
@@ -115,10 +153,12 @@ chain in dependency order: fundamentals → valuations → analytics → ranking
 - **`railway.json` is deprecated.** Railway now prefers `.railway/railway.ts`.
   Existing files keep working until **2026-12-01**. Migrate with
   `railway config migrate`.
-- **The ingestion worker is not deployed.** Daily automation needs its own
-  Railway service, a Volume for `INGEST_DIR`, and its config path pointed at
-  `railway.worker.json` — otherwise Railway reads `railway.json` and the worker
-  starts a web server instead.
+- **The ingestion worker is not deployed as a Railway service.** It is not
+  needed for the current automation, which runs on the operator's machine and
+  pushes over HTTPS. A Railway-side worker only becomes worthwhile with a
+  licensed feed, since a server-side schedule has no files to read; it would
+  then need its own service, a Volume for `INGEST_DIR`, and its config path
+  pointed at `railway.worker.json`.
 - **Backups.** Railway snapshots daily on paid plans. A restore has not been
   drill-tested, and an untested backup is not a backup.
 
@@ -141,7 +181,7 @@ resolve most of it with no code change.
 
 | Check | Result |
 | --- | --- |
-| `npm run verify` | 270 tests, typecheck and lint clean |
+| `npm run verify` | 276 tests, typecheck and lint clean |
 | Production build | Clean |
 | CI | GitHub Actions runs typecheck, lint, the full suite against a real PostgreSQL service, the build, and a worker smoke test |
 | Deployed routes | 8 pages and the ranking APIs return 200 against live data |
