@@ -1,6 +1,6 @@
 # Project status
 
-Last updated: 24 August 2026
+Last updated: 24 August 2026 (evening)
 
 A single place to see what is deployed, what it is serving, and what is left.
 For phase-by-phase detail see [ROADMAP.md](../ROADMAP.md).
@@ -36,14 +36,41 @@ For phase-by-phase detail see [ROADMAP.md](../ROADMAP.md).
 | Instruments | 30 |
 | Ingestion sources | 3 (one usable, two declared-only) |
 | Scoring models | 4 |
-| Market observations | 146 of 148 rows, 5 sessions (2026-08-10 → 08-14) |
+| Market observations | 174 rows, 6 sessions (2026-08-10 → 08-14, and 08-24) |
 | Financial periods | 54 rows → 23 fundamental scores |
 | Ranking snapshots | 5, one per session |
+
+**There is a hole in the series: 17–21 August is missing.** The 24 August
+session was taken from the exchange's own published board, which is same-day
+data and therefore not Historical Data under the Market Data Policy. The
+sessions in between are older than 24 hours and so are the licensed product;
+they have been left alone. Reports for 19, 20 and 21 August are published and
+would close the gap once a licence is in place.
 
 **The 2 rejected rows are correct, not a failure.** JATU on 2026-08-12 and SWIS
 on 2026-08-14 both report a close outside their own high/low, with high equal to
 low. Those rows are inconsistent at source and are recorded in
 `ingestion_errors` with the reason.
+
+### Two findings from the 24 August load
+
+**NMB has been rebased, and the platform refuses to guess by how much.** Its
+close moved from 17,700 on 14 August to 1,850 on 24 August, while the exchange's
+own market capitalisation for it stayed near 9 trillion TZS — which is only
+consistent with roughly ten times the 500,000,000 shares outstanding we hold. A
+ten-for-one split fits every number, but no announcement confirms it, so no
+corporate action has been recorded. The `MARKET_CAP_ANOMALY` warning fired and
+says exactly this. **This needs confirming with the exchange or NMB's registrar
+before any per-share history spanning the two dates can be trusted.**
+
+**A gap in stored history was being published as a one-day move.** Returns were
+computed from the previous stored *row*, with no notion of the calendar, so with
+17–21 August absent the previous row was ten days old. NMB was shown as
+−89.55% for a session in which it actually rose 4.52%. Returns and volatility
+now take the session dates and withhold any window whose reference session is
+too far back to be the session it claims to be. On 24 August all 28 one-day
+returns are therefore withheld; 14 August is unaffected. The guard applies to
+every future gap, not just this one.
 
 ### Live ranking, 14 Aug 2026
 
@@ -129,7 +156,8 @@ built and tested against it.
 
 | Item | Blocker |
 | --- | --- |
-| **Data newer than 14 Aug 2026** | No source held goes beyond it. The workbook contains 5 sessions and nothing more recent exists to load. The sync path is built and verified; it needs a file. |
+| **17–21 Aug 2026 sessions** | Published as daily market reports, but older than 24 hours and therefore the licensed Historical Data product. Loading them closes the gap and restores the withheld returns. |
+| **NMB share count** | The exchange's market cap implies roughly ten times the shares outstanding on record, consistent with an unconfirmed split. Needs confirmation before per-share history spanning 14–24 August is meaningful. |
 | **Historical market data** | DSE Market Data Policy s.16 makes anything older than 24 hours a paid, order-form-gated product, and forbids redistribution without a further licence. Email `data@dse.co.tz` for the Market Data Evaluation Form. The backfill command is built and tested; it needs a licensed file. |
 | **Dividend yield** | No dividend-per-share data exists in any source held. The pipeline is verified end to end; it needs data. |
 | **Cross-listed valuations** | EABL, KCB, KA, NMG, JHL, USL report in KES and trade in TZS. Any per-share multiple mixing the two is wrong by the exchange rate. Needs a TZS/KES series, which is a decision rather than a code gap. |
@@ -181,7 +209,7 @@ resolve most of it with no code change.
 
 | Check | Result |
 | --- | --- |
-| `npm run verify` | 276 tests, typecheck and lint clean |
+| `npm run verify` | 282 tests, typecheck and lint clean |
 | Production build | Clean |
 | CI | GitHub Actions runs typecheck, lint, the full suite against a real PostgreSQL service, the build, and a worker smoke test |
 | Deployed routes | 8 pages and the ranking APIs return 200 against live data |
