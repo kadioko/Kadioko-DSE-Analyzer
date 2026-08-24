@@ -160,6 +160,9 @@ export async function regenerateAnalyticsForDate(
       sessions.map((s) => s.close),
       current.high,
       current.low,
+      // Dates let the window checks reject a reference session that is too far
+      // back to be the one it claims to be.
+      sessions.map((s) => s.tradingDate),
     );
 
     // Fall back to the change implied by close and previous close when the

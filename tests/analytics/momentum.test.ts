@@ -3,6 +3,7 @@ import {
   averageBo,
   boMomentum,
   computeReturns,
+  maxCalendarSpan,
   dailyReturnVolatility,
 } from '@/lib/analytics/momentum';
 import type { BoObservation } from '@/lib/analytics/momentum';
@@ -118,6 +119,66 @@ describe('returns', () => {
   it('withholds the range when high or low is missing', () => {
     expect(computeReturns([105], null, 100).rangePct).toBeNull();
     expect(computeReturns([105], 110, null).rangePct).toBeNull();
+  });
+
+  /*
+   * A hole in the stored history must not be reported as a one-session move.
+   * This is the case that made NMB show a -89.5% "1-day return" when 24 August
+   * was loaded on top of 14 August: the previous stored row was ten days old.
+   */
+  it('withholds the 1-day return when the previous session is too far back', () => {
+    const r = computeReturns(
+      [1850, 17700],
+      null,
+      null,
+      ['2026-08-24', '2026-08-14'],
+    );
+    expect(r.return1d).toBeNull();
+  });
+
+  it('still reports a 1-day return across a normal weekend', () => {
+    // Monday against the preceding Friday is three calendar days apart.
+    const r = computeReturns([102, 100], null, null, ['2026-08-24', '2026-08-21']);
+    expect(r.return1d).toBeCloseTo(2, 6);
+  });
+
+  it('tolerates a public holiday next to a weekend', () => {
+    // Tuesday against the preceding Thursday: five calendar days.
+    const r = computeReturns([102, 100], null, null, ['2026-08-25', '2026-08-20']);
+    expect(r.return1d).toBeCloseTo(2, 6);
+  });
+
+  it('behaves exactly as before when no dates are supplied', () => {
+    const r = computeReturns([1850, 17700], null, null);
+    expect(r.return1d).toBeCloseTo((1850 / 17700 - 1) * 100, 6);
+  });
+
+  it('withholds a 5-day return whose reference session is out of reach', () => {
+    const closes = [110, 108, 106, 104, 102, 100];
+    const dates = [
+      '2026-08-24',
+      '2026-08-21',
+      '2026-08-20',
+      '2026-08-19',
+      '2026-08-18',
+      // Five sessions back should be about a week; three months is not.
+      '2026-05-18',
+    ];
+    expect(computeReturns(closes, null, null, dates).return5d).toBeNull();
+    // Without the gap the same series does report it.
+    expect(
+      computeReturns(closes, null, null, [
+        ...dates.slice(0, 5),
+        '2026-08-17',
+      ]).return5d,
+    ).toBeCloseTo(10, 6);
+  });
+
+  it('gives the widest plausible calendar span for a session count', () => {
+    // One session may span a long weekend; twenty span about a month.
+    expect(maxCalendarSpan(1)).toBe(5);
+    expect(maxCalendarSpan(5)).toBe(10);
+    expect(maxCalendarSpan(20)).toBe(31);
   });
 });
 
