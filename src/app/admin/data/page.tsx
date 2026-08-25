@@ -79,7 +79,15 @@ export default async function AdminDataPage() {
             Signed in as {session.email}
           </p>
         </div>
-        <Badge tone="accent">Database {health.latencyMs} ms</Badge>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/instruments"
+            className="text-xs text-accent-400 hover:text-accent-300"
+          >
+            Instruments &rarr;
+          </Link>
+          <Badge tone="accent">Database {health.latencyMs} ms</Badge>
+        </div>
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

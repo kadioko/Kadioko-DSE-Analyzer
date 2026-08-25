@@ -158,6 +158,64 @@ export async function setInstrumentActive(
     .where(eq(instruments.symbol, symbol.toUpperCase()));
 }
 
+/** Fields an operator may change on an existing instrument. */
+export interface InstrumentEdit {
+  name?: string;
+  sector?: string | null;
+  isCrossListed?: boolean;
+  currency?: string;
+  countryOfIncorporation?: string;
+  active?: boolean;
+  sharesOutstanding?: number | null;
+  /** Null clears the declaration and returns the issuer to inference. */
+  reportingScale?: number | null;
+  reportingScaleSource?: string | null;
+  notes?: string | null;
+}
+
+/**
+ * Applies an operator's edit to one instrument.
+ *
+ * Only the keys actually present are written, so a form that submits one field
+ * cannot blank the others. Returns false when the symbol does not exist, which
+ * the caller reports as a 404 rather than silently succeeding.
+ */
+export async function updateInstrument(
+  symbol: string,
+  edit: InstrumentEdit,
+): Promise<boolean> {
+  const set: Record<string, unknown> = { updatedAt: new Date() };
+
+  if (edit.name !== undefined) set.name = edit.name;
+  if (edit.sector !== undefined) set.sector = edit.sector;
+  if (edit.isCrossListed !== undefined) set.isCrossListed = edit.isCrossListed;
+  if (edit.currency !== undefined) set.currency = edit.currency.toUpperCase();
+  if (edit.countryOfIncorporation !== undefined) {
+    set.countryOfIncorporation = edit.countryOfIncorporation.toUpperCase();
+  }
+  if (edit.active !== undefined) set.active = edit.active;
+  if (edit.sharesOutstanding !== undefined) {
+    set.sharesOutstanding = edit.sharesOutstanding;
+  }
+  if (edit.reportingScale !== undefined) {
+    // NUMERIC is a string at the driver boundary.
+    set.reportingScale =
+      edit.reportingScale === null ? null : edit.reportingScale.toFixed(2);
+  }
+  if (edit.reportingScaleSource !== undefined) {
+    set.reportingScaleSource = edit.reportingScaleSource;
+  }
+  if (edit.notes !== undefined) set.notes = edit.notes;
+
+  const updated = await db
+    .update(instruments)
+    .set(set)
+    .where(eq(instruments.symbol, symbol.toUpperCase()))
+    .returning({ symbol: instruments.symbol });
+
+  return updated.length > 0;
+}
+
 /**
  * Symbols whose financial statements are in a different currency from the one
  * they trade in.
