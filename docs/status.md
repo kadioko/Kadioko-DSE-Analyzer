@@ -1,6 +1,6 @@
 # Project status
 
-Last updated: 24 August 2026 (evening)
+Last updated: 25 August 2026
 
 A single place to see what is deployed, what it is serving, and what is left.
 For phase-by-phase detail see [ROADMAP.md](../ROADMAP.md).
@@ -54,7 +54,20 @@ low. Those rows are inconsistent at source and are recorded in
 
 ### Two findings from the 24 August load
 
-**NMB has been rebased, and the platform refuses to guess by how much.** Its
+**NMB's split is confirmed and recorded.** NMB executed a **1-for-10 share
+split**: CMSA approved 24 July 2026, last cum-split trading 19 August, record
+date 21 August, post-split trading from 24 August. Shares went from 500,000,000
+to 5,000,000,000. It is stored as a verified corporate action with its source,
+and the instrument master is corrected, which clears the market cap anomaly.
+
+Because per-share figures reported before a split are not on the same basis as a
+price quoted after it, the valuation engine now **withholds every multiple that
+straddles one** (`SPLIT_BETWEEN_PERIOD_AND_PRICE`). NMB's EPS of 811.53 against
+1,850 would give a P/E of 2.3 when the truth is nearer 22.8 — wrong in the
+flattering direction. Rebasing properly needs point-in-time share counts, which
+is the follow-up.
+
+**Superseded note, kept for the record:** Its
 close moved from 17,700 on 14 August to 1,850 on 24 August, while the exchange's
 own market capitalisation for it stayed near 9 trillion TZS — which is only
 consistent with roughly ten times the 500,000,000 shares outstanding we hold. A
@@ -156,14 +169,19 @@ built and tested against it.
 
 | Item | Blocker |
 | --- | --- |
-| **17–21 Aug 2026 sessions** | Published as daily market reports, but older than 24 hours and therefore the licensed Historical Data product. Loading them closes the gap and restores the withheld returns. |
-| **NMB share count** | The exchange's market cap implies roughly ten times the shares outstanding on record, consistent with an unconfirmed split. Needs confirmation before per-share history spanning 14–24 August is meaningful. |
+| **17–21 Aug 2026 sessions** | 19, 20 and 21 August are published, but only as `pdf2htmlEX` pages carrying deliberate anti-extraction controls (`user-select:none`, print-blocking, a Ctrl+P handler). 17 and 18 August are not published at all. DSE sells exactly what is needed: **Historical daily Pricelists for equity data, TZS 150,000/month** (USD 150), in Excel and PDF. That is the route. |
+| **NMB per-share history** | Split confirmed and recorded. Multiples straddling it are withheld until per-share figures can be rebased with point-in-time share counts. |
 | **Historical market data** | DSE Market Data Policy s.16 makes anything older than 24 hours a paid, order-form-gated product, and forbids redistribution without a further licence. Email `data@dse.co.tz` for the Market Data Evaluation Form. The backfill command is built and tested; it needs a licensed file. |
 | **Dividend yield** | No dividend-per-share data exists in any source held. The pipeline is verified end to end; it needs data. |
 | **Cross-listed valuations** | EABL, KCB, KA, NMG, JHL, USL report in KES and trade in TZS. Any per-share multiple mixing the two is wrong by the exchange rate. Needs a TZS/KES series, which is a decision rather than a code gap. |
 | **Backtesting** | Needs forward returns. With 5 sessions there is no 1-month return to test against, so the harness would honestly report insufficient history for every metric. |
 
 ### Buildable now
+
+| Priority | Item | Why it matters |
+| --- | --- | --- |
+| High | Point-in-time share counts | Would let multiples be rebased across a split rather than withheld. |
+
 
 | Priority | Item | Why it matters |
 | --- | --- | --- |
@@ -175,6 +193,26 @@ built and tested against it.
 | Low | AI narration | `AI_API_KEY` is unused. The layer would narrate computed values only, never introduce a number. |
 | Low | English / Kiswahili i18n | Ranking carries Kiswahili strings; the rest of the UI is English-only, with no i18n framework. |
 | Low | Report caching | Reports recompute per request. Fine at this size. |
+
+## Licensing, priced
+
+From the DSE's own published 2026 price list:
+
+| Product | Local (TZS) | International (USD) | Relevance |
+| --- | --- | --- | --- |
+| Historical daily Pricelists, equity | 150,000/month | 150 | **Closes the 17–21 Aug gap** |
+| Website & Mobile App — End of Day data | 15,000,000/annum | 12,000 | Applies to a **public** site showing DSE EOD data — which this is |
+| DSE Live Ticker on company website | 600,000/month | 3,000 | Cheaper option, 15-minute delayed |
+| Derived Market Data — Index Calculation | 20,000,000/annum | 21,000 | Creating indices from DSE data |
+| Derived Market Data — Non-Display Usage | 20,000,000/annum | 19,000 | Definition covers quantitative analysis |
+
+The price list note against the website product reads: *"Please contact DSE for
+further details, if it is a public website."* **This needs a decision before the
+deployment is promoted publicly.** Contact `data@dse.co.tz`.
+
+The data portal at `data.dse.co.tz` was unreachable when checked on 25 August.
+Separately, `www.dse.co.tz` serves an expired broker-portal certificate; the
+apex `dse.co.tz` is valid.
 
 ### Housekeeping
 
@@ -209,7 +247,7 @@ resolve most of it with no code change.
 
 | Check | Result |
 | --- | --- |
-| `npm run verify` | 282 tests, typecheck and lint clean |
+| `npm run verify` | 287 tests, typecheck and lint clean |
 | Production build | Clean |
 | CI | GitHub Actions runs typecheck, lint, the full suite against a real PostgreSQL service, the build, and a worker smoke test |
 | Deployed routes | 8 pages and the ranking APIs return 200 against live data |
