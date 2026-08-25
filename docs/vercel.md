@@ -1,9 +1,23 @@
 # Deploying to Vercel
 
-The application already runs on Railway, which also hosts the database. This
-describes running the **web application** on Vercel instead, with the database
-staying on Railway. That split is normal and works; what follows is what to
-watch.
+**Live at <https://kadioko-dse-analyzer.vercel.app>**, serving the same data as
+Railway from the same database.
+
+The application also runs on Railway, which hosts the database. Vercel runs the
+**web application** only, reading Railway's Postgres over its public URL. That
+split is normal and works; what follows is what to watch.
+
+Two notes from the first deployment:
+
+- **The project name is pinned** to `kadioko-dse-analyzer`. Vercel derives a
+  default from the directory, and this one has spaces and capitals, which it
+  rejects outright.
+- **`vercel.json` is Vercel's own**, written by `vercel link` using its
+  `services` schema. Do not add top-level `framework` or `functions` keys beside
+  it — the CLI refuses the combination as ambiguous. Function duration is
+  already declared in the route files themselves via
+  `export const maxDuration`, which Vercel reads natively, so no configuration
+  is needed for it.
 
 ---
 

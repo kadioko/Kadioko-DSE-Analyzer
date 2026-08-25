@@ -19,3 +19,5 @@ next-env.d.ts
 
 # Ingest drop directory: operator-supplied market files, not source code.
 data/incoming/
+
+.env*

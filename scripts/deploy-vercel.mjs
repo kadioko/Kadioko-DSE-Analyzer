@@ -16,7 +16,9 @@
  */
 
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const COLOUR = process.stdout.isTTY && !process.env.NO_COLOR;
 const c = (code, s) => (COLOUR ? `\u001b[${code}m${s}\u001b[0m` : s);
@@ -33,6 +35,9 @@ const NO_DEPLOY = args.includes('--no-deploy');
 const VERCEL = ['-y', 'vercel@latest'];
 const RAILWAY = ['-y', '@railway/cli@latest'];
 
+/** Lowercase, hyphenated: Vercel rejects spaces and capitals. */
+const PROJECT_NAME = 'kadioko-dse-analyzer';
+
 function run(cmd, argv, opts = {}) {
   return spawnSync(cmd, argv, {
     encoding: 'utf8',
@@ -48,8 +53,21 @@ function die(message, hint) {
 }
 
 /**
- * Reads one variable out of a Railway service without it passing through this
- * process's output, a shell history, or an argument list.
+ * A one-line reader, written to a file rather than passed with `node -e`.
+ *
+ * Windows needs `shell: true` for npx to resolve, and the shell then mangles
+ * the quoting inside an inline -e script. A file has no quoting to mangle.
+ * Only the variable NAME is ever an argument; the value goes to stdout.
+ */
+const READER = join(tmpdir(), `kadioko-env-${process.pid}.mjs`);
+writeFileSync(
+  READER,
+  "process.stdout.write(process.env[process.argv[2]] ?? '');\n",
+);
+
+/**
+ * Reads one variable out of a Railway service without it passing through a
+ * shell history or an argument list.
  */
 function railwayVar(service, name) {
   const result = run('npx', [
@@ -59,10 +77,12 @@ function railwayVar(service, name) {
     service,
     '--',
     'node',
-    '-e',
-    `process.stdout.write(process.env[${JSON.stringify(name)}] ?? '')`,
+    READER,
+    name,
   ]);
-  const value = (result.stdout ?? '').trim();
+  if (result.status !== 0) return null;
+  // `railway run` prefixes its own lines; the value is what the reader wrote.
+  const value = (result.stdout ?? '').trim().split('\n').pop()?.trim() ?? '';
   return value === '' ? null : value;
 }
 
@@ -117,7 +137,13 @@ async function main() {
       console.log(`  ${dim('would run')} vercel link`);
     } else {
       console.log(`\n${dim('Linking the Vercel project...')}`);
-      const link = run('npx', [...VERCEL, 'link', '--yes'], { stdio: 'inherit' });
+      // Named explicitly: the default is derived from the directory, and this
+      // one contains spaces and capitals, which Vercel rejects.
+      const link = run(
+        'npx',
+        [...VERCEL, 'link', '--yes', '--project', PROJECT_NAME],
+        { stdio: 'inherit' },
+      );
       if (link.status !== 0) die('vercel link failed.');
     }
   } else {
@@ -229,7 +255,12 @@ async function main() {
   }
 }
 
-main().catch((error) => {
+main()
+  .finally(() => {
+    // The reader holds no secret, but it does not need to outlive the run.
+    try { rmSync(READER, { force: true }); } catch { /* nothing to clean */ }
+  })
+  .catch((error) => {
   console.error(`\n${red('x')} ${error.message}`);
   process.exit(1);
 });
