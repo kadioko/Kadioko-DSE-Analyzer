@@ -18,6 +18,7 @@ import { sql as raw } from 'drizzle-orm';
 import postgres from 'postgres';
 import * as schema from '../src/lib/db/schema';
 import { MODEL_REGISTRY } from '../src/lib/analytics/config';
+import { parseDeclaredScale } from '../src/lib/analytics/units';
 
 loadEnv({ path: '.env', quiet: true });
 
@@ -32,6 +33,9 @@ interface SeedInstrument {
   countryOfIncorporation: string;
   currency: string;
   sharesOutstanding: number | null;
+  /** Stored as text: the column is NUMERIC, which Drizzle types as string. */
+  reportingScale: string | null;
+  reportingScaleSource: string | null;
   notes: string | null;
 }
 
@@ -66,6 +70,8 @@ function readInstrumentSeed(): SeedInstrument[] {
   const iCountry = indexOf('country_of_incorporation');
   const iCurrency = indexOf('currency');
   const iShares = indexOf('shares_outstanding');
+  const iScale = indexOf('reporting_scale');
+  const iScaleSource = indexOf('reporting_scale_source');
   const iNotes = indexOf('notes');
 
   if (iSymbol === -1 || iName === -1) {
@@ -115,6 +121,16 @@ function readInstrumentSeed(): SeedInstrument[] {
         const n = Number(raw);
         return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
       })(),
+      // The multiplier turning this issuer's reported figures into absolute
+      // currency. Blank means undeclared, and the importer infers instead.
+      // Accepts a number or a statement's own wording ("TZS'000").
+      reportingScale: (() => {
+        if (iScale === -1) return null;
+        const parsed = parseDeclaredScale(cells[iScale] ?? null);
+        return parsed === null ? null : parsed.toFixed(2);
+      })(),
+      reportingScaleSource:
+        iScaleSource === -1 ? null : cells[iScaleSource] || null,
       notes: iNotes === -1 ? null : cells[iNotes] || null,
     });
   }
@@ -165,6 +181,9 @@ async function main() {
           // Only overwrite when the seed actually carries a figure, so a value
           // an operator entered by hand is never wiped by a re-seed.
           sharesOutstanding: raw`coalesce(excluded.shares_outstanding, ${schema.instruments.sharesOutstanding})`,
+          // Same rule: a declaration made by hand survives a re-seed.
+          reportingScale: raw`coalesce(excluded.reporting_scale, ${schema.instruments.reportingScale})`,
+          reportingScaleSource: raw`coalesce(excluded.reporting_scale_source, ${schema.instruments.reportingScaleSource})`,
           updatedAt: new Date(),
         },
       });

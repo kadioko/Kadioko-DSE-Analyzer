@@ -194,6 +194,20 @@ export const instruments = pgTable(
     listedDate: date('listed_date'),
     active: boolean('active').notNull().default(true),
     sharesOutstanding: qty('shares_outstanding'),
+    /**
+     * The multiplier that turns this issuer's reported monetary figures into
+     * absolute currency: 1, 1,000 or 1,000,000.
+     *
+     * Declared here rather than inferred per row because a reporting convention
+     * belongs to the issuer and is stable across periods. Inference has to be
+     * re-derived from every statement and can reach different answers on
+     * different periods of the same issuer, which is exactly the fragility this
+     * removes. Null means nothing has been declared, and the importer falls
+     * back to inference.
+     */
+    reportingScale: numeric('reporting_scale', { precision: 14, scale: 2 }),
+    /** Where the declared scale was read from, e.g. "FY2025 statements, p.14". */
+    reportingScaleSource: varchar('reporting_scale_source', { length: 200 }),
     /** Identifier used by the upstream data source, when it differs from symbol. */
     sourceIdentifier: varchar('source_identifier', { length: 80 }),
     isin: varchar('isin', { length: 12 }),

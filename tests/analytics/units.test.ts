@@ -180,3 +180,77 @@ describe('book value is the primary test', () => {
     expect(r.source).toBe('INFERRED');
   });
 });
+
+describe('reading a declared scale the way statements actually write it', () => {
+  /*
+   * Issuers rarely write a bare unit. They write "in TZS'000" on the page
+   * header, or "Amounts are stated in TZS millions" in the notes. A declaration
+   * mechanism that only accepts the number defeats its own purpose, because the
+   * operator has to interpret it first - and interpreting is the step being
+   * removed.
+   */
+  it('reads thousands however it is spelled', () => {
+    for (const raw of [
+      "TZS'000",
+      "TZS '000",
+      "Shs'000",
+      'TZS\u2019000',
+      "'000",
+      'in thousands',
+      'Figures in thousands of shillings',
+      'thousands',
+      '1000',
+      '1,000',
+    ]) {
+      expect(parseDeclaredScale(raw), raw).toBe(1_000);
+    }
+  });
+
+  it('reads millions however it is spelled', () => {
+    for (const raw of [
+      'TZS millions',
+      'millions',
+      "TZS'000'000",
+      'Amounts are stated in TZS millions',
+      '1,000,000',
+    ]) {
+      expect(parseDeclaredScale(raw), raw).toBe(1_000_000);
+    }
+  });
+
+  it('treats a bare currency as absolute figures', () => {
+    // Everything was framing; nothing scales it.
+    expect(parseDeclaredScale('TZS')).toBe(1);
+    expect(parseDeclaredScale('in TZS')).toBe(1);
+    expect(parseDeclaredScale('absolute')).toBe(1);
+    expect(parseDeclaredScale('actual')).toBe(1);
+    expect(parseDeclaredScale(1)).toBe(1);
+  });
+
+  it('refuses anything it cannot read rather than guessing a default', () => {
+    // Returning 1 for unreadable input would silently publish figures a
+    // thousand times too small as though they were declared.
+    expect(parseDeclaredScale('banana')).toBeNull();
+    expect(parseDeclaredScale('-5')).toBeNull();
+    expect(parseDeclaredScale('0')).toBeNull();
+    expect(parseDeclaredScale('')).toBeNull();
+    expect(parseDeclaredScale(null)).toBeNull();
+    expect(parseDeclaredScale(undefined)).toBeNull();
+    expect(parseDeclaredScale(Number.NaN)).toBeNull();
+  });
+
+  it('lets a declaration override what inference would have concluded', () => {
+    // The declared value is used as given, without being re-tested against
+    // market capitalisation: the issuer's own statement outranks our arithmetic.
+    const result = inferReportingScale({
+      declaredScale: 1_000,
+      sharesOutstanding: 1_000_000,
+      closePrice: 100,
+      totalEquity: 50_000_000,
+      revenue: 20_000_000,
+      periodsPerYear: 1,
+    });
+    expect(result.scale).toBe(1_000);
+    expect(result.source).toBe('DECLARED');
+  });
+});

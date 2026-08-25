@@ -184,26 +184,54 @@ export function parseDeclaredScale(raw: unknown): number | null {
     return Number.isFinite(raw) && raw > 0 ? raw : null;
   }
 
-  const text = String(raw).trim().toLowerCase();
+  let text = String(raw).trim().toLowerCase();
   if (text === '') return null;
 
+  // Statements rarely write the bare unit. They write "in TZS'000", "Figures in
+  // thousands of shillings", "Amounts are stated in TZS millions". Strip the
+  // framing and the currency, and what remains is the unit itself.
+  text = text
+    // Curly apostrophes and full stops both appear in TZS.000 / TZS’000.
+    .replace(/[.‘’ʼ']/g, "'")
+    .replace(
+      /^(all\s+)?(amounts?|figures?|values?|numbers?)\s+(are\s+)?(stated|expressed|shown|presented|reported)?\s*/,
+      '',
+    )
+    .replace(/^in\s+/, '')
+    .replace(/\s*of\s+(tanzanian\s+)?(shillings?|tzs|tsh|shs?)\b/g, '')
+    .replace(/\b(tzs|tsh|shs?|shillings?)\b/g, ' ')
+    .replace(/[,\s]+/g, ' ')
+    .trim();
+
   const words: Record<string, number> = {
+    // Everything was framing: "in TZS" alone means absolute figures.
+    '': 1,
     absolute: 1,
+    unit: 1,
     units: 1,
+    one: 1,
     ones: 1,
-    tzs: 1,
+    actual: 1,
+    actuals: 1,
+    full: 1,
     thousand: 1_000,
     thousands: 1_000,
-    "000": 1_000,
+    "'000": 1_000,
+    '000': 1_000,
     k: 1_000,
     million: 1_000_000,
     millions: 1_000_000,
+    "'000'000": 1_000_000,
+    "'000000": 1_000_000,
+    '000000': 1_000_000,
     m: 1_000_000,
     mn: 1_000_000,
+    mio: 1_000_000,
   };
   if (text in words) return words[text] as number;
 
-  const numeric = Number(text.replace(/[,\s]/g, ''));
+  // A bare number is taken at face value: "1000" means figures are in thousands.
+  const numeric = Number(text.replace(/['\s]/g, ''));
   return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
 }
 

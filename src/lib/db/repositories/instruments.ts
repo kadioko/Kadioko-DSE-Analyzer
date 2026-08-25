@@ -49,6 +49,34 @@ export async function symbolIdMap(): Promise<Map<string, string>> {
   return new Map(rows.map((r) => [r.symbol, r.id]));
 }
 
+/**
+ * Symbol -> declared reporting scale, with where it was read from.
+ *
+ * A reporting convention belongs to the issuer and is stable across periods, so
+ * declaring it once here beats re-deriving it from every statement. Only
+ * instruments carrying a declaration appear; the rest fall back to inference.
+ */
+export async function declaredReportingScales(): Promise<
+  Map<string, { scale: number; source: string | null }>
+> {
+  const rows = await db
+    .select({
+      symbol: instruments.symbol,
+      scale: instruments.reportingScale,
+      source: instruments.reportingScaleSource,
+    })
+    .from(instruments);
+
+  const map = new Map<string, { scale: number; source: string | null }>();
+  for (const row of rows) {
+    const scale = toNum(row.scale);
+    if (scale !== null && scale > 0) {
+      map.set(row.symbol, { scale, source: row.source });
+    }
+  }
+  return map;
+}
+
 /** Symbol -> shares outstanding, for the market-cap consistency check. */
 export async function sharesOutstandingMap(): Promise<Map<string, number>> {
   const rows = await db

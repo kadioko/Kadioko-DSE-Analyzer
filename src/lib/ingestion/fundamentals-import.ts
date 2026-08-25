@@ -7,6 +7,7 @@ import { toNumeric, toQty } from '@/lib/db/num';
 import { parseNumber, parseTradingDate, sanitizeText } from './parse';
 import {
   foreignReportingSymbols,
+  declaredReportingScales,
   sharesOutstandingMap,
   symbolIdMap,
 } from '@/lib/db/repositories/instruments';
@@ -141,14 +142,21 @@ export async function importFundamentalsCsv(
     ]);
   }
 
-  const [symbolIds, sharesBySymbol, closeBySymbol, foreignReporters] =
-    await Promise.all([
-      symbolIdMap(),
-      sharesOutstandingMap(),
-      // Needed to test a candidate reporting scale against market capitalisation.
-      latestCloseBySymbol(),
-      foreignReportingSymbols(),
-    ]);
+  const [
+    symbolIds,
+    sharesBySymbol,
+    closeBySymbol,
+    foreignReporters,
+    declaredScales,
+  ] = await Promise.all([
+    symbolIdMap(),
+    sharesOutstandingMap(),
+    // Needed to test a candidate reporting scale against market capitalisation.
+    latestCloseBySymbol(),
+    foreignReportingSymbols(),
+    // Declared once per issuer, so inference is only a fallback.
+    declaredReportingScales(),
+  ]);
   const cell = (row: Record<string, unknown>, field: FieldName) => {
     const col = column[field];
     return col === null ? null : row[col];
@@ -280,7 +288,21 @@ export async function importFundamentalsCsv(
      * derived. A declared scale wins; otherwise it is inferred, and if the
      * evidence is not decisive the figures are stored exactly as reported.
      */
-    const declaredScale = parseDeclaredScale(cell(row, 'reportingScale'));
+    /*
+     * Precedence, strongest evidence first:
+     *   1. the row's own reporting_scale cell   - this file, this period
+     *   2. the issuer's declared scale          - read from its statements once
+     *   3. inference                            - a guess, however careful
+     */
+    const rowScale = parseDeclaredScale(cell(row, 'reportingScale'));
+    const instrumentScale = declaredScales.get(symbol) ?? null;
+    const declaredScale = rowScale ?? instrumentScale?.scale ?? null;
+    const declaredFrom =
+      rowScale !== null
+        ? 'the import file'
+        : instrumentScale
+          ? (instrumentScale.source ?? 'the instrument master')
+          : null;
     const foreignCurrency = foreignReporters.has(symbol);
 
     /*
@@ -319,11 +341,15 @@ export async function importFundamentalsCsv(
         rowNumber,
         symbol,
       });
+    } else if (scaleResult.source === 'DECLARED' && declaredFrom !== null) {
+      // Not a warning. Recorded so the stored note says where the scale came
+      // from, which is the whole point of declaring it.
+      scaleResult.reason = `Reporting scale declared as ${scale.toLocaleString()} by ${declaredFrom}.`;
     } else if (scaleResult.source === 'INFERRED' && scale !== 1) {
       issues.push({
         code: 'REPORTING_SCALE_INFERRED',
         severity: 'WARNING',
-        message: `${symbol} ${periodEnd}: ${scaleResult.reason} Monetary figures were multiplied by ${scale.toLocaleString()}. Add a "reporting_scale" column to declare it explicitly.`,
+        message: `${symbol} ${periodEnd}: ${scaleResult.reason} Monetary figures were multiplied by ${scale.toLocaleString()}. Declare it on the instrument (reporting_scale in data/instruments.seed.csv) to remove the guess.`,
         rowNumber,
         symbol,
       });

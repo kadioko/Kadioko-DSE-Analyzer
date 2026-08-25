@@ -255,9 +255,44 @@ inside the schedule with no other change.
 | `npm run db:generate` | Generate a migration from schema changes |
 | `npm run db:migrate` | Apply pending migrations |
 | `npm run db:seed` | Seed instruments, sources and scoring models |
+| `npm run scales` | **Report which issuers declare their reporting scale and which are still inferred** |
 | `npm run ingest` | Run the ingestion worker (`-- --date=` / `--from= --to=`) |
 | `npm run sync` | **Push local files in `data/incoming/` to the live platform** |
 | `npm run schedule` | Install/inspect/remove the daily automatic sync (`-- --status`, `-- --remove`) |
+
+---
+
+## Declaring reporting units
+
+Financial statements are published in different units — absolute shillings,
+thousands, or millions — and the unit is rarely stated in a machine-readable
+way. Ratios are immune because the scale cancels, but **per-share figures are
+not**: read millions as thousands and EPS is a thousand times too small.
+
+The platform infers the scale when it has to, accepting it only when exactly one
+candidate places price/book and price/sales in a plausible range. That works,
+but it is a guess, and on one issuer it reached different answers for different
+periods.
+
+**Declaring removes the guess.** A reporting convention belongs to the issuer
+and is stable across periods, so it is declared once on the instrument:
+
+```
+symbol,...,shares_outstanding,reporting_scale,reporting_scale_source,notes
+CRDB,...,2611837037,TZS'000,"FY2025 statements, p.14",
+```
+
+`reporting_scale` accepts the statement's own wording — `TZS'000`,
+`in thousands`, `Amounts are stated in TZS millions` — or a plain number. Then
+re-seed. A per-row `reporting_scale` column in a fundamentals CSV still wins for
+that row; the instrument declaration is the fallback, and inference the last
+resort.
+
+See what is still inferred:
+
+```bash
+npm run scales
+```
 
 ---
 
