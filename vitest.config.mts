@@ -7,7 +7,10 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['tests/**/*.test.ts'],
+    // .tsx picks up the component tests, which set their own environment with
+    // a `@vitest-environment happy-dom` docblock. Everything else stays on
+    // node, so the bulk of the suite pays nothing for a DOM it never uses.
+    include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
     // Database-backed tests skip themselves when DATABASE_URL is absent.
     setupFiles: ['tests/setup.ts'],
   },

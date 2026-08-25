@@ -116,7 +116,7 @@ export function formatDate(iso: string | null | undefined): string {
   });
 }
 
-/** 2026-08-11 -> "Tue 11 Aug 2026" */
+/** 2026-08-11 -> "Tue, 11 Aug 2026" */
 export function formatDateLong(iso: string | null | undefined): string {
   if (!iso) return NO_DATA;
   const d = new Date(`${iso}T00:00:00Z`);
