@@ -354,6 +354,31 @@ export async function importFundamentalsCsv(
 
     const verifiedRaw = sanitizeText(cell(row, 'verified'));
 
+    // A publication date in the future is impossible, and it is quietly
+    // destructive: the no-look-ahead rule discards any result published after
+    // the valuation date, so one bad cell silently removes an issuer from every
+    // multiple and every fundamental score. It is far more often a spreadsheet
+    // maintenance stamp than a real release date, so it is refused and the row
+    // is kept without one.
+    const publishedAt = (() => {
+      const parsed = parseTradingDate(cell(row, 'publishedAt'));
+      if (!parsed) return null;
+      const asDate = new Date(`${parsed}T00:00:00Z`);
+      const today = new Date();
+      today.setUTCHours(0, 0, 0, 0);
+      if (asDate.getTime() > today.getTime()) {
+        issues.push({
+          code: 'PUBLICATION_DATE_IN_FUTURE',
+          severity: 'WARNING',
+          message: `${symbol}: published date ${parsed} is in the future and has been ignored. Results cannot be published before they exist.`,
+          rowNumber,
+          symbol,
+        });
+        return null;
+      }
+      return asDate;
+    })();
+
     values.push({
       instrumentId,
       periodEnd,
@@ -399,10 +424,7 @@ export async function importFundamentalsCsv(
       reportingScale: scale.toFixed(2),
       scaleSource: scaleResult.source,
       scaleNote: scaleResult.reason,
-      publishedAt: (() => {
-        const d = parseTradingDate(cell(row, 'publishedAt'));
-        return d ? new Date(`${d}T00:00:00Z`) : null;
-      })(),
+      publishedAt: publishedAt,
       updatedAt: new Date(),
     });
   });

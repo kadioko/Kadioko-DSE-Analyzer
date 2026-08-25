@@ -203,7 +203,14 @@ def extract(workbook_path: str, out_dir: str) -> None:
 
         cadence = str(fcell(row, "Period Type") or "full")
         ptype = period_type_for(statement, cadence)
-        published = as_date(fcell(row, "Last Updated"))
+        # NOT "Last Updated". That column is the sheet's own maintenance stamp -
+        # identical on every row, and dated in the future - not the date the
+        # issuer released the results. Mapping it to published_at made the
+        # no-look-ahead rule discard perfectly good figures for CRDB, NMB, TBL
+        # and TPCC, because results cannot be used before they were published.
+        # No column in this workbook carries a real publication date, so none is
+        # claimed; the as-of rule then falls back to the period end.
+        published = None
 
         revenue = fcell(
             row,
