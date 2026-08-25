@@ -180,13 +180,9 @@ built and tested against it.
 
 | Priority | Item | Why it matters |
 | --- | --- | --- |
-| High | Point-in-time share counts | Would let multiples be rebased across a split rather than withheld. |
-
-
-| Priority | Item | Why it matters |
-| --- | --- | --- |
+| High | Point-in-time share counts | Would let multiples be rebased across a split rather than withheld, and lets historical market caps validate against the share count of the day. |
 | High | Statement units declared at source | Normalisation infers them today. A `reporting_scale` column in the source file would remove the inference entirely. |
-| High | API and UI tests | 270 tests cover analytics, ingestion, ranking and the database. No test covers an HTTP route or a rendered page. |
+| High | API and UI tests | 287 tests cover analytics, ingestion, ranking and the database. No test covers an HTTP route or a rendered page. |
 | Medium | Instrument admin UI | Adding or deactivating a security still means editing `data/instruments.seed.csv` and re-seeding. |
 | Medium | Authentication and watchlists | `users`, `watchlists` and `alerts` tables exist and are unused. Admin token is the only auth. |
 | Medium | Alert evaluation | Schema is in place; nothing evaluates it. |
