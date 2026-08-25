@@ -36,6 +36,20 @@ const envSchema = z.object({
   /** Bearer token required by the scheduled ingestion endpoint. */
   CRON_SECRET: z.string().default(''),
 
+  /**
+   * Key that user session cookies are signed with.
+   *
+   * Deliberately separate from ADMIN_TOKEN: an operator's shared secret and a
+   * member's session are different things, and rotating one should not silently
+   * sign out or elevate the other. Accounts are disabled while this is unset,
+   * in the same way admin routes are disabled without ADMIN_TOKEN, so a
+   * deployment never falls back to an unsigned or default-keyed session.
+   */
+  SESSION_SECRET: z.string().default(''),
+
+  /** Set to "true" to let anyone create an account on this deployment. */
+  ALLOW_SELF_REGISTRATION: z.string().default('false'),
+
   DATA_PROVIDER: z
     .enum(['csv', 'dse_official', 'third_party'])
     .default('csv'),
@@ -108,6 +122,29 @@ export function isDatabaseConfigured(): boolean {
  * hard-disabled in production. Unauthorised scraping must never become the
  * commercial architecture.
  */
+/**
+ * Whether member accounts are usable on this deployment.
+ *
+ * False means every account route reports that accounts are not configured,
+ * rather than falling back to an unsigned session or a default key.
+ */
+export function accountsEnabled(): boolean {
+  return getEnv().SESSION_SECRET.length > 0;
+}
+
+/**
+ * Whether a visitor may create their own account.
+ *
+ * Defaults to false. A public analytics deployment that silently accepts
+ * open registration accumulates accounts nobody chose to admit.
+ */
+export function selfRegistrationEnabled(): boolean {
+  return (
+    accountsEnabled() &&
+    getEnv().ALLOW_SELF_REGISTRATION.trim().toLowerCase() === 'true'
+  );
+}
+
 export function devParsersEnabled(): boolean {
   return getEnv().ENABLE_DEV_PARSERS && !isProduction();
 }
