@@ -7,7 +7,28 @@ watch.
 
 ---
 
-## One-time setup
+## The short version
+
+```bash
+npx vercel login       # once, opens a browser — only you can do this
+npm run vercel:setup   # everything else
+```
+
+`vercel:setup` links the project, copies the secrets across from Railway,
+sets them on Vercel, deploys, and then checks the deployment actually serves
+data. Add `--dry-run` to see what it would do, or `--no-deploy` to configure
+without deploying.
+
+Secrets are copied machine-to-machine: read out of Railway by its own CLI and
+piped into Vercel's on stdin. They are never printed, never written to a file,
+and never passed as command-line arguments where anything able to list
+processes could read them.
+
+The rest of this page is what that command does, and what to watch.
+
+---
+
+## Doing it by hand
 
 ### 1. Sign in to the CLI
 

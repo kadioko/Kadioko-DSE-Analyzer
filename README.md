@@ -246,6 +246,7 @@ inside the schedule with no other change.
 | --- | --- |
 | `npm run setup` | **One-command setup for a new machine** |
 | `npm run railway:setup` | Configure a linked Railway project and migrate its database |
+| `npm run vercel:setup` | Link, configure and deploy to Vercel, copying secrets from Railway |
 | `npm run dev` | Development server |
 | `npm run build` | Production build |
 | `npm run typecheck` | TypeScript, no emit |

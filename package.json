@@ -21,7 +21,8 @@
     "schedule": "node scripts/schedule.mjs",
     "verify": "npm run typecheck && npm run lint && npm run test",
     "setup": "node scripts/setup.mjs",
-    "railway:setup": "node scripts/railway-setup.mjs"
+    "railway:setup": "node scripts/railway-setup.mjs",
+    "vercel:setup": "node scripts/deploy-vercel.mjs"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
