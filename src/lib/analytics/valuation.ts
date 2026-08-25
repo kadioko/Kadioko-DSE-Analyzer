@@ -35,7 +35,8 @@ export type ValuationNote =
   | 'IMPLAUSIBLE_MULTIPLE_UNIT_MISMATCH'
   | 'REPORTING_CURRENCY_MISMATCH'
   | 'EPS_DERIVED_FROM_NET_INCOME'
-  | 'BOOK_VALUE_DERIVED_FROM_EQUITY';
+  | 'BOOK_VALUE_DERIVED_FROM_EQUITY'
+  | 'SPLIT_BETWEEN_PERIOD_AND_PRICE';
 
 export const VALUATION_NOTE_LABELS: Record<ValuationNote, string> = {
   NO_FUNDAMENTALS:
@@ -44,6 +45,8 @@ export const VALUATION_NOTE_LABELS: Record<ValuationNote, string> = {
     'Earnings per share are zero or negative, so a price/earnings ratio is not meaningful. A negative P/E is not a cheap valuation.',
   NEGATIVE_OR_ZERO_BOOK_VALUE:
     'Book value per share is zero or negative, so a price/book ratio is not meaningful.',
+  SPLIT_BETWEEN_PERIOD_AND_PRICE:
+    'A share split or bonus issue took effect after these results were reported, so their per-share figures are on a different share count from today’s price. Any multiple mixing the two would be wrong by the split ratio, so none is published.',
   NO_DIVIDEND_DATA:
     'No dividend per share is on file, so dividend yield cannot be computed. This is an absence of data, not a dividend of zero.',
   NO_SHARE_COUNT:
@@ -83,6 +86,13 @@ export interface ValuationInput {
   closePrice: number | null;
   sharesOutstanding: number | null;
   marketCapTzs: number | null;
+
+  /**
+   * Cumulative share-count multiplier from splits and bonus issues that took
+   * effect AFTER the reporting period and on or before the valuation date.
+   * 1 (or null) means nothing intervened.
+   */
+  splitFactorSincePeriod?: number | null;
 
   /** Reported per-share figures, when the issuer published them. */
   eps: number | null;
@@ -166,6 +176,20 @@ export function computeValuation(input: ValuationInput): ValuationResult {
   // so nothing is published.
   if (input.foreignReportingCurrency) {
     notes.push('REPORTING_CURRENCY_MISMATCH');
+    return empty;
+  }
+
+  // A split rebases the share count, so per-share figures reported before it
+  // are not on the same basis as a price quoted after it. NMB's 1-for-10 split
+  // on 24 August 2026 is the worked example: EPS of 811.53 against a post-split
+  // price of 1,850 gives a P/E of 2.3 when the truth is nearer 22.8.
+  //
+  // Rebasing them correctly needs a point-in-time share count for every figure,
+  // which is a larger piece of work. Until that exists, nothing is published,
+  // because a multiple wrong by the split ratio is far worse than a dash.
+  const splitFactor = input.splitFactorSincePeriod ?? 1;
+  if (splitFactor !== 1 && splitFactor > 0) {
+    notes.push('SPLIT_BETWEEN_PERIOD_AND_PRICE');
     return empty;
   }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { computeValuation } from '@/lib/analytics/valuation';
 import { isInterim, periodsPerYear } from '@/lib/analytics/period';
+import { splitFactorSince } from '@/lib/services/corporate-actions-service';
 
 const base = {
   closePrice: 100,
@@ -291,5 +292,65 @@ describe('trailing twelve-month dividends', () => {
     expect(v.pbRatio).toBeNull();
     expect(v.dividendYield).toBeNull();
     expect(v.notes).toContain('REPORTING_CURRENCY_MISMATCH');
+  });
+});
+
+describe('splits between the reporting period and the price', () => {
+  /*
+   * NMB's 1-for-10 split, effective 24 August 2026, is the worked example.
+   * Its June 2026 results report EPS of 811.53 on 500,000,000 shares. After the
+   * split the price is 1,850 on 5,000,000,000 shares. Dividing one by the other
+   * gives a P/E of 2.3 when the truth is nearer 22.8 - cheap-looking, and wrong
+   * by exactly the split ratio.
+   */
+  it('withholds every multiple when a split intervened', () => {
+    const v = computeValuation({
+      ...base,
+      closePrice: 1850,
+      sharesOutstanding: 500_000_000,
+      eps: 811.532,
+      bookValuePerShare: 4000,
+      splitFactorSincePeriod: 10,
+    });
+
+    expect(v.peRatio).toBeNull();
+    expect(v.pbRatio).toBeNull();
+    expect(v.notes).toContain('SPLIT_BETWEEN_PERIOD_AND_PRICE');
+  });
+
+  it('publishes normally when nothing intervened', () => {
+    const withFactor = computeValuation({ ...base, eps: 10, splitFactorSincePeriod: 1 });
+    const withNull = computeValuation({ ...base, eps: 10, splitFactorSincePeriod: null });
+    const omitted = computeValuation({ ...base, eps: 10 });
+
+    expect(withFactor.peRatio).toBeCloseTo(10, 10);
+    expect(withNull.peRatio).toBeCloseTo(10, 10);
+    expect(omitted.peRatio).toBeCloseTo(10, 10);
+    expect(withFactor.notes).not.toContain('SPLIT_BETWEEN_PERIOD_AND_PRICE');
+  });
+});
+
+describe('folding share-count events into a factor', () => {
+  it('counts only events after the period end', () => {
+    const events = [
+      { effectiveDate: '2026-06-30', factor: 2 }, // on the period end: belongs to it
+      { effectiveDate: '2026-08-24', factor: 10 },
+    ];
+    expect(splitFactorSince(events, '2026-06-30')).toBe(10);
+  });
+
+  it('compounds several events', () => {
+    const events = [
+      { effectiveDate: '2026-07-01', factor: 2 },
+      { effectiveDate: '2026-08-24', factor: 10 },
+    ];
+    expect(splitFactorSince(events, '2026-06-30')).toBe(20);
+  });
+
+  it('is 1 when there is nothing to apply', () => {
+    expect(splitFactorSince([], '2026-06-30')).toBe(1);
+    expect(splitFactorSince(undefined, '2026-06-30')).toBe(1);
+    // Without a period end there is no window, so nothing can be applied.
+    expect(splitFactorSince([{ effectiveDate: '2026-08-24', factor: 10 }], null)).toBe(1);
   });
 });

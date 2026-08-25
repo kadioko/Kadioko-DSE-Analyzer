@@ -25,6 +25,77 @@ import type { CorporateActionRow } from '@/lib/db/schema';
  * means "no dividend on file", which the valuation engine reports distinctly
  * from a declared zero.
  */
+/**
+ * Verified splits and bonus issues effective on or before a date, per instrument.
+ *
+ * Returned rather than pre-multiplied because the window that matters differs
+ * per instrument: it runs from that issuer's own reporting period end to the
+ * valuation date. Callers fold the ones that fall in their window.
+ *
+ * A 1-for-10 split multiplies the share count by 10, so every per-share figure
+ * reported before it is ten times its post-split equivalent.
+ *
+ * Only VERIFIED actions count. An unverified split is a rumour, and rebasing
+ * published multiples on a rumour is exactly the failure this codebase exists
+ * to avoid.
+ */
+export interface ShareCountEvent {
+  effectiveDate: string;
+  factor: number;
+}
+
+export async function shareCountEventsUpTo(
+  asOfDate: string,
+): Promise<Map<string, ShareCountEvent[]>> {
+  const result = await db.execute(raw`
+    select
+      ca.instrument_id::text                              as instrument_id,
+      coalesce(ca.effective_date, ca.ex_date)::text       as effective_date,
+      (ca.ratio_to::numeric / ca.ratio_from::numeric)::text as factor
+    from corporate_actions ca
+    where ca.type in ('STOCK_SPLIT', 'BONUS_ISSUE')
+      and ca.verified = true
+      and ca.ratio_from is not null
+      and ca.ratio_to is not null
+      and ca.ratio_from > 0
+      and ca.ratio_to > 0
+      and coalesce(ca.effective_date, ca.ex_date) is not null
+      and coalesce(ca.effective_date, ca.ex_date) <= ${asOfDate}::date
+    order by ca.instrument_id, effective_date
+  `);
+
+  const rows = result as unknown as Array<Record<string, unknown>>;
+  const map = new Map<string, ShareCountEvent[]>();
+
+  for (const r of rows) {
+    const instrumentId = r.instrument_id as string | undefined;
+    const effectiveDate = r.effective_date as string | null;
+    const factor = toNum(r.factor as string | null);
+    if (!instrumentId || !effectiveDate || factor === null || factor <= 0) continue;
+    const list = map.get(instrumentId) ?? [];
+    list.push({ effectiveDate, factor });
+    map.set(instrumentId, list);
+  }
+
+  return map;
+}
+
+/**
+ * Product of the events that fall strictly after `periodEnd`.
+ *
+ * An action effective ON the period end belongs to that period, not after it,
+ * so the comparison is strict.
+ */
+export function splitFactorSince(
+  events: readonly ShareCountEvent[] | undefined,
+  periodEnd: string | null,
+): number {
+  if (!events || events.length === 0 || !periodEnd) return 1;
+  return events
+    .filter((e) => e.effectiveDate > periodEnd)
+    .reduce((acc, e) => acc * e.factor, 1);
+}
+
 export async function trailingDividendsAsOf(
   asOfDate: string,
 ): Promise<Map<string, { dps: number; payments: number; currency: string }>> {

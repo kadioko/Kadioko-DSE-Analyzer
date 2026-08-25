@@ -8,7 +8,11 @@ import {
   valuations,
 } from '@/lib/db/schema';
 import { foreignReportingSymbols } from '@/lib/db/repositories/instruments';
-import { trailingDividendsAsOf } from '@/lib/services/corporate-actions-service';
+import {
+  shareCountEventsUpTo,
+  splitFactorSince,
+  trailingDividendsAsOf,
+} from '@/lib/services/corporate-actions-service';
 import { toNum, toNumeric, toScore } from '@/lib/db/num';
 import {
   computeValuation,
@@ -124,8 +128,13 @@ async function fundamentalsAsOf(
 export async function regenerateValuationsForDate(
   tradingDate: string,
 ): Promise<ValuationGenerationResult> {
-  const [sessionRows, fundamentalsMap, foreignReporters, dividendsByInstrument] =
-    await Promise.all([
+  const [
+    sessionRows,
+    fundamentalsMap,
+    foreignReporters,
+    dividendsByInstrument,
+    shareCountEvents,
+  ] = await Promise.all([
     db
       .select({
         instrumentId: marketDaily.instrumentId,
@@ -142,6 +151,9 @@ export async function regenerateValuationsForDate(
     // Declared dividends over the trailing twelve months. Preferred over any
     // per-share figure in the accounts because it is what was actually paid.
     trailingDividendsAsOf(tradingDate),
+    // Splits rebase the share count, so results reported before one are not on
+    // the same basis as a price quoted after it.
+    shareCountEventsUpTo(tradingDate),
   ]);
 
   const rows = [];
@@ -159,6 +171,10 @@ export async function regenerateValuationsForDate(
       sharesOutstanding:
         toNum(f?.sharesOutstanding ?? null) ?? toNum(session.sharesOutstanding),
       marketCapTzs: toNum(session.marketCapTzs),
+      splitFactorSincePeriod: splitFactorSince(
+        shareCountEvents.get(session.instrumentId),
+        f?.periodEnd ?? null,
+      ),
       eps: toNum(f?.eps ?? null),
       // Declared dividends win. They are already a trailing-twelve-month total,
       // so the valuation engine must not annualise them again.
