@@ -33,9 +33,21 @@ function createClient(): Sql {
   const env = getEnv();
   const isProd = env.NODE_ENV === 'production';
 
+  /*
+   * On a serverless platform every concurrent invocation is its own process
+   * with its own pool, so a per-process maximum of 10 is really 10 x however
+   * many instances the platform decides to run. That exhausts the database's
+   * connection limit under exactly the load it is meant to survive. One
+   * connection per instance is the right shape there; a long-lived server that
+   * genuinely multiplexes requests wants a real pool.
+   */
+  const serverless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+
   return postgres(env.DATABASE_URL, {
-    max: isProd ? 10 : 4,
-    idle_timeout: 20,
+    max: serverless ? 1 : isProd ? 10 : 4,
+    // A frozen serverless instance holds an idle socket the database still
+    // counts, so it is released sooner there.
+    idle_timeout: serverless ? 5 : 20,
     connect_timeout: 15,
     // Railway terminates TLS at its proxy with a self-signed chain.
     ssl: env.DATABASE_URL.includes('localhost') ? false : 'require',

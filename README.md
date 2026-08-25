@@ -301,6 +301,7 @@ npm run scales
 | Document | Contents |
 | --- | --- |
 | [docs/architecture.md](docs/architecture.md) | System design, data flow, module boundaries |
+| [docs/vercel.md](docs/vercel.md) | Deploying the web app to Vercel, and what changes there |
 | [docs/methodology.md](docs/methodology.md) | Every formula, weight and threshold |
 | [docs/data-dictionary.md](docs/data-dictionary.md) | Every table and column |
 | [docs/ingestion.md](docs/ingestion.md) | Import workflow, validation rules, provider contract |
