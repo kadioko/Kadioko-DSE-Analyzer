@@ -17,6 +17,7 @@
     "scales": "tsx scripts/scales.ts",
     "db:studio": "drizzle-kit studio",
     "ingest": "tsx --tsconfig workers/tsconfig.json workers/market-ingestion/index.ts",
+    "fetch": "tsx scripts/fetch-board.ts",
     "sync": "node scripts/sync.mjs",
     "schedule": "node scripts/schedule.mjs",
     "verify": "npm run typecheck && npm run lint && npm run test",

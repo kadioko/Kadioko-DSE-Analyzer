@@ -21,3 +21,4 @@ next-env.d.ts
 data/incoming/
 
 .env*
+data/incoming/.sync-state.json

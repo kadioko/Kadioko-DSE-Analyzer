@@ -17,7 +17,8 @@
  * skips files the server has already ingested unless told otherwise.
  */
 
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { readdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { join, resolve, basename } from 'node:path';
 import { existsSync } from 'node:fs';
 
@@ -39,6 +40,50 @@ const valueOf = (name) => {
 
 const DRY_RUN = has('--dry-run');
 const FORCE_ALL = has('--all');
+
+/**
+ * Remembers which files have already been sent, by content.
+ *
+ * The date in a market file's name says whether the platform already holds that
+ * session, but nothing dates a corporate-actions file. Without this the nightly
+ * job re-sent every one of them every night: harmless, because imports are
+ * idempotent, but it turned a quiet evening into a wall of "0 new, 4 updated"
+ * and buried the one line that would have mattered.
+ *
+ * Content-hashed rather than timestamped, so a corrected file is re-sent and an
+ * untouched one is not.
+ */
+const STATE_VERSION = 1;
+
+function stateFile(dir) {
+  return join(dir, '.sync-state.json');
+}
+
+async function readState(dir) {
+  try {
+    const parsed = JSON.parse(await readFile(stateFile(dir), 'utf8'));
+    if (parsed?.version !== STATE_VERSION) return {};
+    return parsed.sent ?? {};
+  } catch {
+    // No state, or unreadable state, means nothing is known to have been sent.
+    return {};
+  }
+}
+
+async function writeState(dir, sent) {
+  try {
+    await writeFile(
+      stateFile(dir),
+      `${JSON.stringify({ version: STATE_VERSION, sent }, null, 2)}\n`,
+      'utf8',
+    );
+  } catch {
+    // Losing the record only costs a redundant send next time, so a failure
+    // here must never fail the sync itself.
+  }
+}
+
+const hashOf = (buffer) => createHash('sha256').update(buffer).digest('hex').slice(0, 16);
 
 /** Loads .env.local so the script needs no exported shell variables. */
 async function loadEnvFile() {
@@ -136,7 +181,26 @@ async function main() {
     }
   }
 
-  const pending = entries.filter((n) => !alreadyLoaded.has(n));
+  /*
+   * A file is skipped when the platform already holds its session (market
+   * files, by the date in the name) or when this exact content has been sent
+   * before (anything, by hash). The second is what stops the nightly job
+   * re-sending unchanged corporate actions every evening.
+   */
+  const sentBefore = FORCE_ALL ? {} : await readState(dir);
+  const contents = new Map();
+
+  for (const name of entries) {
+    contents.set(name, await readFile(join(dir, name)));
+  }
+
+  const unchanged = new Set(
+    entries.filter((name) => sentBefore[name] === hashOf(contents.get(name))),
+  );
+
+  const pending = entries.filter(
+    (n) => !alreadyLoaded.has(n) && !unchanged.has(n),
+  );
 
   if (pending.length === 0) {
     console.log(`${green('OK')} Everything is already loaded. ${dim(`(${entries.length} file(s) checked)`)}`);
@@ -178,7 +242,7 @@ async function main() {
     const kind = classify(name);
     const path = join(dir, name);
     const info = await stat(path);
-    const content = await readFile(path);
+    const content = contents.get(name);
 
     const form = new FormData();
     form.set('file', new File([content], basename(name), { type: 'text/csv' }));
@@ -219,12 +283,16 @@ async function main() {
       ].filter(Boolean);
 
       console.log(green('ok') + (parts.length ? ` ${dim('.')} ${parts.join(', ')}` : ''));
+      // Only a file that actually landed is remembered, so a failure is retried.
+      sentBefore[name] = hashOf(content);
       sent += 1;
     } catch (error) {
       console.log(red(`failed - ${error.message}`));
       failed += 1;
     }
   }
+
+  await writeState(dir, sentBefore);
 
   console.log('');
   if (failed === 0) {

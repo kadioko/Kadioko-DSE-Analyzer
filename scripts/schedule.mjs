@@ -13,7 +13,11 @@
  * the OS scheduler is already running and already survives a reboot.
  *
  * 18:00 East Africa Time is the default because the DSE closes at 16:00 and
- * end-of-day files are published after settlement.
+ * end-of-day figures are published after settlement.
+ *
+ * Each run fetches the session the exchange is currently publishing and then
+ * sends anything new to the platform. Both steps stay silent on a day with
+ * nothing to do.
  */
 
 import { execFile } from 'node:child_process';
@@ -41,7 +45,24 @@ const valueOf = (name) => {
 };
 
 const projectDir = resolve(process.cwd());
-const scriptPath = join(projectDir, 'scripts', 'sync.mjs');
+/*
+ * Both platforms invoke the same two-step runner, which fetches the published
+ * session and then syncs it.
+ *
+ * Without the fetch, the evening job looked in data/incoming, found nothing new
+ * and correctly reported SKIPPED - every night, forever. Fetching first is what
+ * closes the loop.
+ *
+ * The steps live in a file rather than inline because Windows caps a task's
+ * command at 261 characters, and because one runner keeps the two platforms
+ * doing demonstrably the same thing.
+ */
+const runnerFor = (platform) =>
+  join(
+    projectDir,
+    'scripts',
+    platform === 'win32' ? 'scheduled-run.cmd' : 'scheduled-run.sh',
+  );
 const isWindows = process.platform === 'win32';
 
 function parseTime(raw) {
@@ -74,7 +95,9 @@ async function windowsInstall(time) {
   // Wrapped in cmd so the working directory is right: sync.mjs reads .env.local
   // and data/incoming relative to the project, not to wherever Task Scheduler
   // happens to start.
-  const command = `cmd /c cd /d "${projectDir}" && node "${scriptPath}"`;
+  // Task Scheduler caps this string at 261 characters, and this project's
+  // path alone eats a third of that, so the steps live in a runner file.
+  const command = `cmd /c "${runnerFor('win32')}"`;
   await run('schtasks', [
     '/create',
     '/tn', TASK_NAME,
@@ -120,9 +143,8 @@ function withoutOurLines(content) {
 }
 
 async function unixInstall(time) {
-  const node = process.execPath;
   const line =
-    `${time.minute} ${time.hour} * * 1-5 cd "${projectDir}" && "${node}" "${scriptPath}" ${CRON_TAG}`;
+    `${time.minute} ${time.hour} * * 1-5 "${runnerFor(process.platform)}" ${CRON_TAG}`;
   const current = withoutOurLines(await readCrontab()).trimEnd();
   await writeCrontab(current ? `${current}\n${line}` : line);
 }
@@ -189,7 +211,7 @@ async function main() {
 
   console.log(`${green('OK')} Installed.`);
   console.log(`\n  ${dim('runs')}    weekdays at ${bold(time.text)} (this computer's local time)`);
-  console.log(`  ${dim('does')}    sends anything new in data/incoming to the live platform`);
+  console.log(`  ${dim('does')}    fetches the published session, then sends anything new to the platform`);
   console.log(`  ${dim('needs')}   this computer switched on at that time\n`);
   console.log(`  ${dim('Check it with')}  npm run schedule -- --status`);
   console.log(`  ${dim('Remove it with')} npm run schedule -- --remove\n`);

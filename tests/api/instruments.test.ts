@@ -18,10 +18,21 @@ const updateInstrument = vi.fn();
 const upsertInstruments = vi.fn();
 const rateLimit = vi.fn();
 
-vi.mock('@/lib/auth', () => ({
-  requireAdmin: () => requireAdmin(),
-  NotAuthorizedError: class NotAuthorizedError extends Error {},
-}));
+/*
+ * Only requireAdmin is replaced; NotAuthorizedError is kept as the real class.
+ *
+ * Defining a fresh class here looks harmless and is not. `handle()` decides on
+ * a 401 with `error instanceof NotAuthorizedError`, against whichever copy
+ * src/lib/api.ts resolved. Other test files call vi.resetModules(), so the
+ * registry can hand out two instances of this mocked module - and then the
+ * class thrown is not the class checked, instanceof is false, and the route
+ * returns 500 instead of 401. It passed alone and failed in the full suite,
+ * which is exactly how a real 401 regression would have hidden here.
+ */
+vi.mock('@/lib/auth', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/auth')>();
+  return { ...actual, requireAdmin: () => requireAdmin() };
+});
 
 vi.mock('@/lib/db/repositories/instruments', () => ({
   listInstruments: (o: unknown) => listInstruments(o),
